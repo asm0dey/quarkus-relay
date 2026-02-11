@@ -77,6 +77,24 @@ As a system administrator, I want to configure the base domain and other server 
 
 ---
 
+### User Story 5 - WebSocket Forwarding (Priority: P2)
+
+As a developer with a real-time application, I want WebSocket connections from external users to be forwarded through the tunnel to my local application, so that I can develop and test WebSocket-based features locally.
+
+**Why this priority**: Many modern applications use WebSockets for real-time features. Supporting WebSocket forwarding makes the tunnel service suitable for full-stack development.
+
+**Independent Test**: Can be tested by establishing a WebSocket connection to the assigned subdomain and verifying bidirectional message flow works.
+
+**Acceptance Scenarios**:
+
+1. **Given** a client has an active tunnel, **When** an external user opens a WebSocket connection to `wss://abc123.tun.example.com/ws`, **Then** the WebSocket upgrade request is forwarded to the local application and the bidirectional connection is established.
+
+2. **Given** an active WebSocket tunnel, **When** the external user sends a message, **Then** the message is forwarded to the local application.
+
+3. **Given** an active WebSocket tunnel, **When** the local application sends a message, **Then** the message is forwarded to the external user.
+
+---
+
 ### Edge Cases
 
 - **Client disconnect timeout**: When a client disconnects unexpectedly, the server waits 30 seconds before considering the tunnel closed (grace period for in-flight requests).
@@ -86,6 +104,9 @@ As a system administrator, I want to configure the base domain and other server 
 - **In-flight requests on disconnect**: When a client disconnects while requests are in-flight, those requests immediately receive 503 Service Unavailable.
 - **Malformed HTTP requests**: The server validates incoming HTTP and returns 400 Bad Request for malformed requests.
 - **Concurrent connection limits**: No artificial limits per tunnel or client; constrained by server resources (memory, file descriptors).
+- **Non-HTTP local response**: If the local application returns a malformed or non-HTTP response, the server returns 502 Bad Gateway to the external requester.
+- **Invalid WebSocket message**: If a WebSocket message has invalid format or unknown message type, the connection is closed with error code 1008 (policy violation).
+- **Resource exhaustion**: When server reaches resource limits (memory, file descriptors), new tunnel connections are rejected with 503 Service Unavailable until resources free up.
 
 ## Requirements *(mandatory)*
 
@@ -101,6 +122,8 @@ As a system administrator, I want to configure the base domain and other server 
 - **FR-008**: The server configuration MUST allow setting the base domain for subdomain generation.
 - **FR-009**: The client MUST maintain a persistent connection to the server for receiving requests.
 - **FR-010**: The system MUST forward WebSocket connections from external users to the local application through the tunnel (end-to-end WebSocket proxying).
+- **FR-011**: The server MUST support configurable shutdown behavior: graceful (wait for in-flight requests with timeout) or immediate (close immediately).
+- **FR-012**: The client MUST implement exponential backoff reconnection strategy: initial delay 1 second, doubling each retry, capped at 60 seconds, with infinite retries.
 
 ### Key Entities
 
@@ -119,13 +142,24 @@ As a system administrator, I want to configure the base domain and other server 
 - Q: How long should the server wait for a response from the local application? -> A: 30 seconds
 - Q: What happens to in-flight requests when a client disconnects? -> A: Fail immediately with 503
 
+## Assumptions
+
+- **Wildcard DNS**: The deployment environment has wildcard DNS configured (e.g., `*.tun.example.com` → server IP).
+- **Reverse Proxy for TLS**: Production deployments use a reverse proxy (nginx, traefik, etc.) for TLS termination; Quarkus native TLS is optional.
+- **HTTP-Compliant Local Application**: The local application behind the client follows HTTP/1.1 or HTTP/2 protocol specifications.
+
+## Dependencies
+
+- **WebSocket Support**: Both server and client runtime environments support WebSocket protocol (RFC 6455).
+- **Network Connectivity**: Client has outbound internet access to reach the relay server.
+
 ## Success Criteria *(mandatory)*
 
 ### Measurable Outcomes
 
 - **SC-001**: A user can complete the full setup (start server, start client, receive subdomain) in under 5 minutes.
-- **SC-002**: HTTP requests to assigned subdomains are forwarded to the local application with less than 100ms additional latency (excluding network latency) under normal load.
-- **SC-003**: The system supports at least 100 concurrent active tunnels without degradation.
+- **SC-002**: HTTP requests to assigned subdomains are forwarded to the local application with less than 100ms additional latency (excluding network latency) under normal load (defined as: up to 100 concurrent tunnels, 1000 requests/second total).
+- **SC-003**: The system supports at least 100 concurrent active tunnels without degradation (degradation defined as: latency increase >20%, error rate >1%, or throughput drop >15%).
 - **SC-004**: Invalid secret keys are rejected 100% of the time with no false positives.
-- **SC-005**: When the local application is healthy, 99.9% of proxied requests complete successfully.
+- **SC-005**: When the local application is healthy, 99.9% of proxied requests complete successfully under normal load (100 concurrent tunnels, 1000 req/s).
 - **SC-006**: Subdomain collisions occur with probability less than 1 in 1 million (based on random subdomain generation strategy).

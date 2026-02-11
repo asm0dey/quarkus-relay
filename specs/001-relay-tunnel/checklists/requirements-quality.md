@@ -11,8 +11,8 @@
 - [x] CHK003 - Are subdomain generation requirements specified with format and uniqueness constraints? [Completeness, Spec FR-002]
 - [x] CHK004 - Are configuration requirements defined for all tunable parameters (domain, timeouts, limits)? [Completeness, Spec FR-008]
 - [x] CHK005 - Are error handling requirements specified for all failure scenarios? [Completeness, Spec Edge Cases]
-- [ ] CHK006 - Are requirements defined for server shutdown behavior (graceful vs forced)? [Completeness, Gap]
-- [ ] CHK007 - Are requirements specified for client reconnection strategy (backoff, max retries)? [Completeness, Gap]
+- [x] CHK006 - Are requirements defined for server shutdown behavior (graceful vs forced)? [Completeness, Spec FR-011]
+- [x] CHK007 - Are requirements specified for client reconnection strategy (backoff, max retries)? [Completeness, Spec FR-012]
 
 ## Requirement Clarity
 
@@ -20,8 +20,8 @@
 - [x] CHK009 - Is "less than 100ms additional latency" defined with measurement methodology? [Clarity, Spec SC-002]
 - [x] CHK010 - Are timeout durations explicitly specified (30s for local app, 30s disconnect grace)? [Clarity, Spec Edge Cases]
 - [x] CHK011 - Is "degradation" in success criteria defined with measurable thresholds? [Clarity, Spec SC-003]
-- [ ] CHK012 - Is "without degradation" in SC-003 quantified (e.g., latency increase <X%, error rate <Y%)? [Clarity, Gap]
-- [ ] CHK013 - Is "normal load" in SC-002 and SC-005 defined with specific request rates or concurrency levels? [Clarity, Gap]
+- [x] CHK012 - Is "without degradation" in SC-003 quantified (e.g., latency increase <X%, error rate <Y%)? [Clarity, Spec SC-003]
+- [x] CHK013 - Is "normal load" in SC-002 and SC-005 defined with specific request rates or concurrency levels? [Clarity, Spec SC-002/SC-005]
 
 ## Requirement Consistency
 
@@ -35,7 +35,7 @@
 - [x] CHK018 - Are all acceptance scenarios written in Given/When/Then format? [Format Quality, Spec US1-US4]
 - [x] CHK019 - Do acceptance scenarios have clear, verifiable expected outcomes? [Testability, Spec US1-US4]
 - [x] CHK020 - Are edge cases distinguished from happy path scenarios? [Coverage, Spec Edge Cases]
-- [ ] CHK021 - Are acceptance criteria defined for WebSocket forwarding (FR-010)? [Coverage, Gap]
+- [x] CHK021 - Are acceptance criteria defined for WebSocket forwarding (FR-010)? [Coverage, Spec US5]
 
 ## Scenario Coverage
 
@@ -43,8 +43,8 @@
 - [x] CHK023 - Are HTTP method variations covered (GET, POST with body)? [Coverage, Spec US2 scenarios 1-2]
 - [x] CHK024 - Is concurrent usage scenario covered for multiple clients? [Coverage, Spec US3 scenario 1]
 - [x] CHK025 - Is configuration customization scenario covered? [Coverage, Spec US4]
-- [ ] CHK026 - Are scenarios defined for WebSocket connection upgrade and message exchange? [Coverage, Gap]
-- [ ] CHK027 - Are scenarios defined for partial/intermittent connectivity? [Coverage, Gap]
+- [x] CHK026 - Are scenarios defined for WebSocket connection upgrade and message exchange? [Coverage, Spec US5]
+- [~] CHK027 - Are scenarios defined for partial/intermittent connectivity? [Coverage, Deferred to post-MVP]
 
 ## Edge Case Coverage
 
@@ -54,25 +54,25 @@
 - [x] CHK031 - Is large body handling specified with size limits? [Edge Cases, Spec Edge Cases]
 - [x] CHK032 - Is in-flight request handling on disconnect specified? [Edge Cases, Spec Edge Cases]
 - [x] CHK033 - Is malformed request handling specified? [Edge Cases, Spec Edge Cases]
-- [ ] CHK034 - Is behavior specified when local application returns non-HTTP response? [Edge Cases, Gap]
-- [ ] CHK035 - Is behavior specified when WebSocket message format is invalid? [Edge Cases, Gap]
-- [ ] CHK036 - Is behavior specified when server reaches resource limits (memory, FDs)? [Edge Cases, Gap]
+- [x] CHK034 - Is behavior specified when local application returns non-HTTP response? [Edge Cases, Spec Edge Cases]
+- [x] CHK035 - Is behavior specified when WebSocket message format is invalid? [Edge Cases, Spec Edge Cases]
+- [x] CHK036 - Is behavior specified when server reaches resource limits (memory, FDs)? [Edge Cases, Spec Edge Cases]
 
 ## Non-Functional Requirements
 
 - [x] CHK037 - Are performance requirements specified (latency, throughput)? [NFR, Spec SC-002/SC-003]
 - [x] CHK038 - Are reliability requirements specified (request success rate)? [NFR, Spec SC-005]
 - [x] CHK039 - Are scalability requirements specified (concurrent tunnels)? [NFR, Spec SC-003]
-- [ ] CHK040 - Are security requirements specified beyond authentication (encryption, input validation)? [NFR, Gap]
-- [ ] CHK041 - Are observability requirements specified (logging, metrics, alerting)? [NFR, Gap]
-- [ ] CHK042 - Are availability/SLA requirements specified (uptime percentage)? [NFR, Gap]
+- [~] CHK040 - Are security requirements specified beyond authentication (encryption, input validation)? [NFR, Deferred to hardening phase]
+- [~] CHK041 - Are observability requirements specified (logging, metrics, alerting)? [NFR, Deferred to observability phase]
+- [~] CHK042 - Are availability/SLA requirements specified (uptime percentage)? [NFR, Deferred to operations phase]
 
 ## Dependencies & Assumptions
 
 - [x] CHK043 - Is the assumption of wildcard DNS configuration documented? [Assumption, Spec US1/US4]
 - [x] CHK044 - Is the dependency on WebSocket protocol availability documented? [Dependency, Spec FR-009/FR-010]
-- [ ] CHK045 - Is the assumption about reverse proxy (for TLS) explicitly documented? [Assumption, Gap]
-- [ ] CHK046 - Are assumptions about local application behavior (HTTP-compliant) documented? [Assumption, Gap]
+- [x] CHK045 - Is the assumption about reverse proxy (for TLS) explicitly documented? [Assumption, Spec Assumptions]
+- [x] CHK046 - Are assumptions about local application behavior (HTTP-compliant) documented? [Assumption, Spec Assumptions]
 
 ## Traceability
 
@@ -83,6 +83,6 @@
 ## Notes
 
 - Check items off as completed: `[x]`
-- Items marked `[Gap]` indicate missing requirements that should be added to spec.md
-- 18 items checked as complete based on existing spec content
-- 12 items marked as gaps requiring spec updates
+- Items marked `[Gap]` indicate missing requirements
+- Items marked `[~]` indicate deferred requirements (post-MVP)
+- Resolution: 10 gaps resolved, 3 gaps deferred (intermittent connectivity, security hardening, observability, SLA)
