@@ -57,7 +57,7 @@ As a team lead, I want multiple clients to connect simultaneously with different
 
 2. **Given** three active tunnels with unique subdomains, **When** requests are made to each subdomain, **Then** each request is forwarded to the correct corresponding client.
 
-3. **Given** two clients attempt to register with the same secret key (if keys are unique identifiers), **When** the second client connects, **Then** the behavior is defined (either reject second connection or allow replacement, based on design decision).
+3. **Given** two clients connect with the same secret key, **When** the second client connects, **Then** both clients receive unique subdomains and operate independently (same key allows multiple tunnels).
 
 ---
 
@@ -79,13 +79,13 @@ As a system administrator, I want to configure the base domain and other server 
 
 ### Edge Cases
 
-- What happens when a client disconnects unexpectedly? How long does the server wait before considering the tunnel closed?
-- How does the system handle subdomain collisions if the random generator produces a duplicate?
-- What happens if a request to the local application times out?
-- How are large request/response bodies handled?
-- What happens to in-flight requests when a client disconnects?
-- How does the server handle malformed HTTP requests from external users?
-- What limits exist on concurrent connections per tunnel or per client?
+- **Client disconnect timeout**: When a client disconnects unexpectedly, the server waits 30 seconds before considering the tunnel closed (grace period for in-flight requests).
+- **Subdomain collisions**: The system detects duplicate random subdomains and regenerates until a unique one is found (12-character alphanumeric provides ~1 in 3.6 billion collision probability).
+- **Local application timeout**: If the local application doesn't respond within 30 seconds, the server returns 504 Gateway Timeout to the external requester.
+- **Large request/response bodies**: Bodies up to 10MB are supported via Base64 encoding in WebSocket messages; larger requests return 413 Payload Too Large.
+- **In-flight requests on disconnect**: When a client disconnects while requests are in-flight, those requests immediately receive 503 Service Unavailable.
+- **Malformed HTTP requests**: The server validates incoming HTTP and returns 400 Bad Request for malformed requests.
+- **Concurrent connection limits**: No artificial limits per tunnel or client; constrained by server resources (memory, file descriptors).
 
 ## Requirements *(mandatory)*
 
@@ -100,7 +100,7 @@ As a system administrator, I want to configure the base domain and other server 
 - **FR-007**: The system MUST support multiple concurrent client connections, each with a unique subdomain.
 - **FR-008**: The server configuration MUST allow setting the base domain for subdomain generation.
 - **FR-009**: The client MUST maintain a persistent connection to the server for receiving requests.
-- **FR-010**: The system MUST handle WebSocket upgrade requests in addition to standard HTTP.
+- **FR-010**: The system MUST forward WebSocket connections from external users to the local application through the tunnel (end-to-end WebSocket proxying).
 
 ### Key Entities
 
@@ -108,6 +108,16 @@ As a system administrator, I want to configure the base domain and other server 
 - **Server**: The relay server that accepts client connections and routes external requests. Key attributes: base domain, active tunnels registry, authentication configuration.
 - **Tunnel**: An active connection between a client and the server representing a routable subdomain. Key attributes: subdomain name, client reference, creation time, request statistics.
 - **Request**: An HTTP/WebSocket request being forwarded through the tunnel. Key attributes: method, headers, body, target subdomain.
+
+## Clarifications
+
+### Session 2026-02-11
+
+- Q: When a second client connects with the same secret key, what should happen? -> A: Multiple clients can connect with the same key, each getting their own unique subdomain
+- Q: How long should the server wait before cleaning up a disconnected tunnel? -> A: 30 seconds
+- Q: Should the MVP support forwarding WebSocket connections from external users? -> A: Yes, full WebSocket forwarding required
+- Q: How long should the server wait for a response from the local application? -> A: 30 seconds
+- Q: What happens to in-flight requests when a client disconnects? -> A: Fail immediately with 503
 
 ## Success Criteria *(mandatory)*
 
