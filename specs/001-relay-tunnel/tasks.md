@@ -28,13 +28,13 @@
 
 **Objective**: Initialize multi-module Gradle project with Quarkus dependencies
 
-- [ ] T001 Create multi-module Gradle project structure (server/, client/, shared/ modules)
-- [ ] T002 Configure root build.gradle.kts with Kotlin 2.x and Java 21 settings
-- [ ] T003 [P] Configure server module with Quarkus 3.x dependencies (websockets, vertx, config-yaml, health, micrometer)
-- [ ] T004 [P] Configure client module with Quarkus 3.x dependencies (websockets, picocli)
-- [ ] T005 [P] Create shared module for protocol message types (Envelope, RequestPayload, ResponsePayload)
-- [ ] T006 Configure Testcontainers for integration testing
-- [ ] T007 Create basic application.yml templates for server and client configuration
+- [x] T001 Create multi-module Gradle project structure (server/, client/, shared/ modules)
+- [x] T002 Configure root build.gradle.kts with Kotlin 2.x and Java 21 settings
+- [x] T003 [P] Configure server module with Quarkus 3.x dependencies (websockets, vertx, config-yaml, health, micrometer)
+- [x] T004 [P] Configure client module with Quarkus 3.x dependencies (websockets, picocli)
+- [x] T005 [P] Create shared module for protocol message types (Envelope, RequestPayload, ResponsePayload)
+- [x] T006 Configure Testcontainers for integration testing (included in build.gradle.kts)
+- [x] T007 Create basic application.yml templates for server and client configuration
 
 ---
 
@@ -44,30 +44,30 @@
 
 ### Shared Protocol (Blocks: US1, US2, US3, US4, US5)
 
-- [ ] T101 Create Envelope data class with correlationId, type, timestamp, payload (for TS-101)
-- [ ] T102 Create MessageType enum (REQUEST, RESPONSE, ERROR, CONTROL)
-- [ ] T103 Create RequestPayload data class (method, path, query, headers, base64 body) (for TS-102)
-- [ ] T104 Create ResponsePayload data class (statusCode, headers, base64 body) (for TS-103)
-- [ ] T105 Create ErrorPayload data class with error codes (TIMEOUT, UPSTREAM_ERROR, INVALID_REQUEST, SERVER_ERROR, RATE_LIMITED) (for TS-104)
-- [ ] T106 Create ControlPayload data class for tunnel registration (for TS-105)
-- [ ] T107 Implement JSON serialization/deserialization for all message types
+- [x] T101 Create Envelope data class with correlationId, type, timestamp, payload (for TS-101)
+- [x] T102 Create MessageType enum (REQUEST, RESPONSE, ERROR, CONTROL)
+- [x] T103 Create RequestPayload data class (method, path, query, headers, base64 body) (for TS-102)
+- [x] T104 Create ResponsePayload data class (statusCode, headers, base64 body) (for TS-103)
+- [x] T105 Create ErrorPayload data class with error codes (TIMEOUT, UPSTREAM_ERROR, INVALID_REQUEST, SERVER_ERROR, RATE_LIMITED) (for TS-104)
+- [x] T106 Create ControlPayload data class for tunnel registration (for TS-105)
+- [x] T107 Implement JSON serialization/deserialization for all message types (via Jackson annotations)
 - [ ] T108 Write unit tests for message serialization (TS-101 through TS-106)
 
 ### Server Core Infrastructure (Blocks: US1, US2)
 
-- [ ] T201 Create TunnelConnection data class (subdomain, session, createdAt, metadata)
-- [ ] T202 Create PendingRequest class for tracking in-flight requests
-- [ ] T203 Implement SubdomainGenerator service with 12-char alphanumeric generation (for TS-302)
-- [ ] T204 [P] Implement TunnelRegistry singleton with thread-safe register/lookup/unregister (for TS-301)
-- [ ] T205 Create RelayConfig configuration class for server settings (for TS-303)
+- [x] T201 Create TunnelConnection data class (subdomain, session, createdAt, metadata)
+- [x] T202 Create PendingRequest class for tracking in-flight requests
+- [x] T203 Implement SubdomainGenerator service with 12-char alphanumeric generation (for TS-302)
+- [x] T204 [P] Implement TunnelRegistry singleton with thread-safe register/lookup/unregister (for TS-301)
+- [x] T205 Create RelayConfig configuration class for server settings (for TS-303)
 - [ ] T206 Implement RequestContext with correlation ID tracking for observability
 - [ ] T207 Write unit tests for TunnelRegistry operations (TS-301)
 - [ ] T208 Write unit tests for SubdomainGenerator uniqueness (TS-302)
 
 ### Client Core Infrastructure (Blocks: US1, US2)
 
-- [ ] T301 Create ClientConfig data class for CLI arguments (server-url, secret-key, local-url, subdomain)
-- [ ] T302 Implement configuration parsing with validation (for TS-303)
+- [x] T301 Create ClientConfig data class for CLI arguments (server-url, secret-key, local-url, subdomain)
+- [x] T302 Implement configuration parsing with validation (for TS-303)
 - [ ] T303 Write unit tests for ClientConfig parsing (TS-303)
 
 ---
@@ -82,20 +82,20 @@
 
 ### Server Implementation
 
-- [ ] T401 Implement TunnelWebSocketEndpoint with @ServerEndpoint annotation
-- [ ] T402 Implement secret key validation on WebSocket connection open (for TS-002)
-- [ ] T403 Implement subdomain assignment and registration in registry (for TS-001)
-- [ ] T404 Send CONTROL message with REGISTERED action containing subdomain and publicUrl (for TS-105, TS-001)
-- [ ] T405 Implement connection error handling with proper close codes
-- [ ] T406 Handle client disconnect cleanup with 30-second grace period
+- [x] T401 Implement TunnelWebSocketEndpoint with @ServerEndpoint annotation
+- [x] T402 Implement secret key validation on WebSocket connection open (for TS-002)
+- [x] T403 Implement subdomain assignment and registration in registry (for TS-001)
+- [x] T404 Send CONTROL message with REGISTERED action containing subdomain and publicUrl (for TS-105, TS-001)
+- [x] T405 Implement connection error handling with proper close codes
+- [x] T406 Handle client disconnect cleanup with 30-second grace period
 
 ### Client Implementation
 
-- [ ] T411 Create TunnelClient main class with CLI argument parsing
-- [ ] T412 Implement WebSocketClientEndpoint with connection logic
-- [ ] T413 Send authentication (secret key) on connection open
-- [ ] T414 Handle CONTROL/REGISTERED message to extract subdomain URL (for TS-001)
-- [ ] T415 Implement connection failure handling with clear error messages (for TS-003)
+- [x] T411 Create TunnelClient main class with CLI argument parsing
+- [x] T412 Implement WebSocketClientEndpoint with connection logic
+- [x] T413 Send authentication (secret key) on connection open
+- [x] T414 Handle CONTROL/REGISTERED message to extract subdomain URL (for TS-001)
+- [x] T415 Implement connection failure handling with clear error messages (for TS-003)
 
 ### Integration Tests
 
@@ -115,13 +115,13 @@
 
 ### Server Implementation
 
-- [ ] T501 Implement SubdomainRoutingHandler as Vert.x Route handler
-- [ ] T502 Extract subdomain from Host header and lookup in TunnelRegistry
-- [ ] T503 Return 404 for unknown subdomains
-- [ ] T504 Implement RequestForwarder to serialize HTTP requests into WebSocket messages
-- [ ] T505 Handle RESPONSE messages and stream back to original HTTP requester
-- [ ] T506 Implement request timeout handling (30s) returning 504 (for TS-205)
-- [ ] T507 Handle client disconnection during request (return 503) (for TS-202)
+- [x] T501 Implement SubdomainRoutingHandler as Vert.x Route handler
+- [x] T502 Extract subdomain from Host header and lookup in TunnelRegistry
+- [x] T503 Return 404 for unknown subdomains
+- [x] T504 Implement RequestForwarder to serialize HTTP requests into WebSocket messages
+- [x] T505 Handle RESPONSE messages and stream back to original HTTP requester
+- [x] T506 Implement request timeout handling (30s) returning 504 (for TS-205)
+- [x] T507 Handle client disconnection during request (return 503) (for TS-202)
 
 ### Client Implementation
 

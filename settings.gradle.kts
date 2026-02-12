@@ -10,4 +10,9 @@ pluginManagement {
         id(quarkusPluginId) version quarkusPluginVersion
     }
 }
-rootProject.name="code-with-quarkus"
+
+rootProject.name = "relay-tunnel"
+
+include("shared")
+include("server")
+include("client")
