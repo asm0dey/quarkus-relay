@@ -1,28 +1,31 @@
 relay:
   domain: ${RELAY_DOMAIN:tun.example.com}
-  request-timeout: ${RELAY_REQUEST_TIMEOUT:30s}
-  max-body-size: ${RELAY_MAX_BODY_SIZE:10485760}
-  subdomain-length: ${RELAY_SUBDOMAIN_LENGTH:12}
-  shutdown-mode: ${RELAY_SHUTDOWN_MODE:graceful}
-  graceful-shutdown-timeout: ${RELAY_GRACEFUL_SHUTDOWN_TIMEOUT:30s}
+  secret-keys:
+    - test-secret-key
+    - test-secret-key-1
+    - test-secret-key-2
+  request-timeout: 5s
+  max-body-size: 10485760
+  subdomain-length: 12
+  shutdown-mode: graceful
+  graceful-shutdown-timeout: 5s
 
 quarkus:
   application:
     name: relay-server
     version: 1.0.0
   http:
-    port: ${PORT:8080}
+    port: 0
   log:
     console:
       format: "%d{yyyy-MM-dd HH:mm:ss} %-5p [%c{2.}] (%t) %s%e%n"
       json: false
-    level: INFO
+      level: INFO
   micrometer:
     export:
       prometheus:
-        path: /metrics
+        enabled: false
 
-  # Health checks
   smallrye-health:
     root-path: /health
     liveness-path: /live

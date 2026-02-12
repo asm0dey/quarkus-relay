@@ -12,6 +12,7 @@ dependencies {
     implementation("io.quarkus:quarkus-websockets")
     implementation("io.quarkus:quarkus-jackson")
     implementation("io.quarkus:quarkus-picocli")
+    implementation("io.quarkus:quarkus-config-yaml")
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
     implementation(project(":shared"))
     testImplementation("io.quarkus:quarkus-junit5")

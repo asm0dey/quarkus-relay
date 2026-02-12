@@ -51,7 +51,7 @@
 - [x] T105 Create ErrorPayload data class with error codes (TIMEOUT, UPSTREAM_ERROR, INVALID_REQUEST, SERVER_ERROR, RATE_LIMITED) (for TS-104)
 - [x] T106 Create ControlPayload data class for tunnel registration (for TS-105)
 - [x] T107 Implement JSON serialization/deserialization for all message types (via Jackson annotations)
-- [ ] T108 Write unit tests for message serialization (TS-101 through TS-106)
+- [x] T108 Write unit tests for message serialization (TS-101 through TS-106)
 
 ### Server Core Infrastructure (Blocks: US1, US2)
 
@@ -60,15 +60,15 @@
 - [x] T203 Implement SubdomainGenerator service with 12-char alphanumeric generation (for TS-302)
 - [x] T204 [P] Implement TunnelRegistry singleton with thread-safe register/lookup/unregister (for TS-301)
 - [x] T205 Create RelayConfig configuration class for server settings (for TS-303)
-- [ ] T206 Implement RequestContext with correlation ID tracking for observability
-- [ ] T207 Write unit tests for TunnelRegistry operations (TS-301)
-- [ ] T208 Write unit tests for SubdomainGenerator uniqueness (TS-302)
+- [x] T206 Implement RequestContext with correlation ID tracking for observability
+- [x] T207 Write unit tests for TunnelRegistry operations (TS-301)
+- [x] T208 Write unit tests for SubdomainGenerator uniqueness (TS-302)
 
 ### Client Core Infrastructure (Blocks: US1, US2)
 
 - [x] T301 Create ClientConfig data class for CLI arguments (server-url, secret-key, local-url, subdomain)
 - [x] T302 Implement configuration parsing with validation (for TS-303)
-- [ ] T303 Write unit tests for ClientConfig parsing (TS-303)
+- [x] T303 Write unit tests for ClientConfig parsing (TS-303)
 
 ---
 
@@ -125,11 +125,11 @@
 
 ### Client Implementation
 
-- [ ] T511 Implement LocalHttpProxy to make HTTP requests to local application
-- [ ] T512 Handle incoming REQUEST messages from WebSocket
-- [ ] T513 Forward request to local application preserving method, headers, body
-- [ ] T514 Serialize local application response into RESPONSE message with correlationId
-- [ ] T515 Handle local application unreachable (return error response) (for TS-006)
+- [x] T511 Implement LocalHttpProxy to make HTTP requests to local application
+- [x] T512 Handle incoming REQUEST messages from WebSocket
+- [x] T513 Forward request to local application preserving method, headers, body
+- [x] T514 Serialize local application response into RESPONSE message with correlationId
+- [x] T515 Handle local application unreachable (return error response) (for TS-006)
 
 ### Integration Tests
 
@@ -151,10 +151,10 @@
 
 ### Server Implementation
 
-- [ ] T601 Implement concurrent connection handling in TunnelWebSocketEndpoint
-- [ ] T602 Implement subdomain collision detection and regeneration (for TS-203)
-- [ ] T603 Ensure thread-safe tunnel registry operations under concurrent load
-- [ ] T604 Validate correct routing when multiple tunnels are active (for TS-008)
+- [x] T601 Implement concurrent connection handling in TunnelWebSocketEndpoint
+- [x] T602 Implement subdomain collision detection and regeneration (for TS-203)
+- [x] T603 Ensure thread-safe tunnel registry operations under concurrent load
+- [x] T604 Validate correct routing when multiple tunnels are active (for TS-008)
 
 ### Integration Tests
 
@@ -176,10 +176,10 @@
 
 ### Server Implementation
 
-- [ ] T701 Implement RelayConfig loading from application.yml and environment variables
-- [ ] T702 Implement base domain configuration for subdomain generation (for TS-010)
-- [ ] T703 Implement secret key validation rules configuration (for TS-011)
-- [ ] T704 Add configuration validation on server startup
+- [x] T701 Implement RelayConfig loading from application.yml and environment variables
+- [x] T702 Implement base domain configuration for subdomain generation (for TS-010)
+- [x] T703 Implement secret key validation rules configuration (for TS-011)
+- [x] T704 Add configuration validation on server startup
 
 ### Integration Tests
 
@@ -230,19 +230,19 @@
 
 ### Server Implementation
 
-- [ ] T901 Implement configurable shutdown behavior (graceful/immediate)
-- [ ] T902 Implement graceful shutdown: wait for in-flight requests (30s timeout) (for TS-015)
-- [ ] T903 Implement immediate shutdown: close all connections immediately (for TS-016)
-- [ ] T904 Notify clients of impending shutdown via CONTROL message
-- [ ] T905 Reject new connections during shutdown sequence
+- [x] T901 Implement configurable shutdown behavior (graceful/immediate)
+- [x] T902 Implement graceful shutdown: wait for in-flight requests (30s timeout) (for TS-015)
+- [x] T903 Implement immediate shutdown: close all connections immediately (for TS-016)
+- [x] T904 Notify clients of impending shutdown via CONTROL message
+- [x] T905 Reject new connections during shutdown sequence
 
 ### Client Implementation
 
-- [ ] T911 Implement ReconnectionHandler with exponential backoff
-- [ ] T912 Implement 1s initial delay, doubling each retry (2s, 4s, 8s...) (for TS-017)
-- [ ] T913 Implement 60-second delay cap with infinite retries (for TS-017)
-- [ ] T914 Add jitter to reconnection delays to prevent thundering herd
-- [ ] T915 Handle server shutdown notification gracefully
+- [x] T911 Implement ReconnectionHandler with exponential backoff
+- [x] T912 Implement 1s initial delay, doubling each retry (2s, 4s, 8s...) (for TS-017)
+- [x] T913 Implement 60-second delay cap with infinite retries (for TS-017)
+- [x] T914 Add jitter to reconnection delays to prevent thundering herd
+- [x] T915 Handle server shutdown notification gracefully
 
 ### Integration Tests
 
@@ -283,14 +283,14 @@
 
 ### Implementation
 
-- [ ] T1101 Configure Micrometer metrics: relay.tunnels.active gauge
-- [ ] T1102 Configure Micrometer metrics: relay.requests.total counter
-- [ ] T1103 Configure Micrometer metrics: relay.requests.duration timer
-- [ ] T1104 Configure Micrometer metrics: relay.requests.errors counter
-- [ ] T1105 Implement structured JSON logging with correlation IDs
-- [ ] T1106 Add health check endpoints (/health/live, /health/ready)
-- [ ] T1107 Create README with setup and usage instructions
-- [ ] T1108 Create deployment guide with Docker example
+- [x] T1101 Configure Micrometer metrics: relay.tunnels.active gauge
+- [x] T1102 Configure Micrometer metrics: relay.requests.total counter
+- [x] T1103 Configure Micrometer metrics: relay.requests.duration timer
+- [x] T1104 Configure Micrometer metrics: relay.requests.errors counter
+- [x] T1105 Implement structured JSON logging with correlation IDs
+- [x] T1106 Add health check endpoints (/health/live, /health/ready)
+- [x] T1107 Create README with setup and usage instructions
+- [x] T1108 Create deployment guide with Docker example
 
 ---
 

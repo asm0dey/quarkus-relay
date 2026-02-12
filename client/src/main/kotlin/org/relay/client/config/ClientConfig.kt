@@ -1,6 +1,7 @@
 package org.relay.client.config
 
 import io.smallrye.config.ConfigMapping
+import io.smallrye.config.WithDefault
 import java.time.Duration
 import java.util.Optional
 
@@ -21,7 +22,7 @@ interface ClientConfig {
      * Secret key for authenticating with the Relay server.
      * This key must be pre-registered with the server.
      */
-    fun secretKey(): String
+    fun secretKey(): Optional<String>
 
     /**
      * URL of the target application (local service) to forward requests to.
@@ -51,24 +52,28 @@ interface ClientConfig {
          * Whether automatic reconnection is enabled.
          * Default: true
          */
+        @WithDefault("true")
         fun enabled(): Boolean
 
         /**
          * Initial delay before the first reconnection attempt.
          * Default: 1 second
          */
+        @WithDefault("1s")
         fun initialDelay(): Duration
 
         /**
          * Maximum delay between reconnection attempts.
          * Default: 60 seconds
          */
+        @WithDefault("60s")
         fun maxDelay(): Duration
 
         /**
          * Multiplier for exponential backoff.
          * Default: 2.0
          */
+        @WithDefault("2.0")
         fun multiplier(): Double
 
         /**
@@ -76,6 +81,7 @@ interface ClientConfig {
          * A value of 0.1 means ±5% variation from the calculated delay.
          * Default: 0.1
          */
+        @WithDefault("0.1")
         fun jitter(): Double
     }
 }

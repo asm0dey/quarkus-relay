@@ -19,6 +19,6 @@ quarkus:
     console:
       format: "%d{yyyy-MM-dd HH:mm:ss} %-5p [%c{2.}] (%t) %s%e%n"
     level: INFO
-  # CLI application configuration
-  main:
-    cli: true
+  # Disable HTTP server - client is a CLI app, not a server
+  http:
+    host-enabled: false

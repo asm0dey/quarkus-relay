@@ -22,6 +22,7 @@ data class ControlPayload(
 
         // Common control actions
         const val ACTION_REGISTER = "REGISTER"
+        const val ACTION_REGISTERED = "REGISTERED"
         const val ACTION_UNREGISTER = "UNREGISTER"
         const val ACTION_HEARTBEAT = "HEARTBEAT"
         const val ACTION_STATUS = "STATUS"

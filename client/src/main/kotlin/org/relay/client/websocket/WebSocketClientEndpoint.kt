@@ -63,7 +63,8 @@ class WebSocketClientEndpoint @Inject constructor(
 
     /**
      * Called when the WebSocket connection is opened.
-     * Sends the initial registration request with the secret key.
+     * Server auto-registers the client during handshake with secret key.
+     * Waits for REGISTERED control message from server.
      */
     @OnOpen
     fun onOpen(session: Session) {
@@ -74,8 +75,8 @@ class WebSocketClientEndpoint @Inject constructor(
         // Reset reconnection handler on successful connection
         reconnectionHandler.reset()
 
-        // Send registration request with secret key
-        sendRegistrationRequest()
+        // Server auto-registers on handshake; wait for REGISTERED message
+        logger.debug("Waiting for server registration confirmation...")
     }
 
     /**
@@ -176,7 +177,7 @@ class WebSocketClientEndpoint @Inject constructor(
         }
 
         when (controlPayload.action) {
-            ControlPayload.ACTION_REGISTER -> {
+            ControlPayload.ACTION_REGISTERED -> {
                 // Server confirmed registration with assigned subdomain
                 this.assignedSubdomain = controlPayload.subdomain
                 this.publicUrl = controlPayload.publicUrl
@@ -217,7 +218,7 @@ class WebSocketClientEndpoint @Inject constructor(
     private fun sendRegistrationRequest() {
         val registrationPayload = objectMapper.createObjectNode().apply {
             put("action", ControlPayload.ACTION_REGISTER)
-            put("secretKey", clientConfig.secretKey())
+            put("secretKey", clientConfig.secretKey().orElse(""))
             if (clientConfig.subdomain().isPresent) {
                 put("requestedSubdomain", clientConfig.subdomain().get())
             }
@@ -312,6 +313,6 @@ class WebSocketClientEndpoint @Inject constructor(
      * Generates a unique correlation ID for messages.
      */
     private fun generateCorrelationId(): String {
-        return "${System.currentTimeMillis()}-${Thread.currentThread().id}-${(Math.random() * 10000).toInt()}"
+        return "${System.currentTimeMillis()}-${Thread.currentThread().threadId()}-${(Math.random() * 10000).toInt()}"
     }
 }

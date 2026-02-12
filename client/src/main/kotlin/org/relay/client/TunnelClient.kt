@@ -3,19 +3,17 @@ package org.relay.client
 import io.quarkus.runtime.Quarkus
 import io.quarkus.runtime.QuarkusApplication
 import io.quarkus.runtime.ShutdownEvent
-import io.quarkus.runtime.annotations.QuarkusMain
 import io.quarkus.runtime.StartupEvent
+import io.quarkus.runtime.annotations.QuarkusMain
 import jakarta.enterprise.context.ApplicationScoped
 import jakarta.enterprise.event.Observes
 import jakarta.inject.Inject
-import org.eclipse.microprofile.config.inject.ConfigProperty
 import org.relay.client.config.ClientConfig
 import org.relay.client.retry.ReconnectionHandler
 import org.relay.client.websocket.WebSocketClientEndpoint
 import org.slf4j.LoggerFactory
 import java.net.URI
 import java.util.concurrent.CountDownLatch
-import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
 
 @QuarkusMain
@@ -34,7 +32,43 @@ class TunnelClient @Inject constructor(
     companion object {
         @JvmStatic
         fun main(args: Array<String>) {
+            // Parse CLI args early to set system properties before Quarkus starts
+            // This allows config validation to work with CLI-provided values
+            parseArgsEarly(args)
             Quarkus.run(TunnelClient::class.java, *args)
+        }
+        
+        private fun parseArgsEarly(args: Array<String>) {
+            var i = 0
+            while (i < args.size) {
+                when (args[i]) {
+                    "--server-url", "-s" -> {
+                        if (i + 1 < args.size) {
+                            System.setProperty("relay.client.server-url", args[i + 1])
+                            i += 2
+                        } else i++
+                    }
+                    "--secret-key", "-k" -> {
+                        if (i + 1 < args.size) {
+                            System.setProperty("relay.client.secret-key", args[i + 1])
+                            i += 2
+                        } else i++
+                    }
+                    "--local-url", "-l" -> {
+                        if (i + 1 < args.size) {
+                            System.setProperty("relay.client.local-url", args[i + 1])
+                            i += 2
+                        } else i++
+                    }
+                    "--subdomain", "-d" -> {
+                        if (i + 1 < args.size) {
+                            System.setProperty("relay.client.subdomain", args[i + 1])
+                            i += 2
+                        } else i++
+                    }
+                    else -> i++
+                }
+            }
         }
     }
 
@@ -168,7 +202,7 @@ class TunnelClient @Inject constructor(
             logger.error("Server URL is required (use --server-url or RELAY_SERVER_URL)")
             return false
         }
-        if (clientConfig.secretKey().isBlank()) {
+        if (clientConfig.secretKey().isEmpty) {
             logger.error("Secret key is required (use --secret-key or RELAY_SECRET_KEY)")
             return false
         }
@@ -183,10 +217,19 @@ class TunnelClient @Inject constructor(
         return try {
             logger.info("Connecting to ${clientConfig.serverUrl()}...")
             
-            val uri = URI(clientConfig.serverUrl())
+            // Append secret key as query parameter for authentication during handshake
+            val baseUri = URI(clientConfig.serverUrl())
+            val authUri = URI(
+                baseUri.scheme,
+                baseUri.authority,
+                baseUri.path,
+                "secret=${clientConfig.secretKey().orElse("")}",
+                baseUri.fragment
+            )
+            
             val container = jakarta.websocket.ContainerProvider.getWebSocketContainer()
             
-            container.connectToServer(clientEndpoint, uri)
+            container.connectToServer(clientEndpoint, authUri)
             
             // Wait for connection to be established (up to 10 seconds)
             var attempts = 0

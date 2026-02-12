@@ -38,7 +38,8 @@ class ClientConfigTest {
 
     @Test
     fun `Config parsing - parses secret key from application config`() {
-        assertEquals("test-secret-key-12345", clientConfig.secretKey())
+        assertTrue(clientConfig.secretKey().isPresent)
+        assertEquals("test-secret-key-12345", clientConfig.secretKey().get())
     }
 
     @Test
@@ -167,7 +168,8 @@ class ClientConfigOptionalSubdomainTest {
     @Test
     fun `Optional subdomain - can access other config without subdomain`() {
         assertEquals("wss://test.relay.example.com", clientConfig.serverUrl())
-        assertEquals("test-secret-key", clientConfig.secretKey())
+        assertTrue(clientConfig.secretKey().isPresent)
+        assertEquals("test-secret-key", clientConfig.secretKey().get())
         assertEquals("http://localhost:8080", clientConfig.localUrl())
     }
 }

@@ -30,6 +30,17 @@ class Application @Inject constructor(
         private val logger = LoggerFactory.getLogger(Application::class.java)
         private const val APP_NAME = "relay-server"
         private const val APP_VERSION = "1.0.0"
+
+        /**
+         * Main entry point for the application.
+         *
+         * @param args Command line arguments
+         */
+        @JvmStatic
+        fun main(args: Array<String>) {
+            Quarkus.run(*args)
+        }
+
     }
 
     @ConfigProperty(name = "quarkus.http.port", defaultValue = "8080")
@@ -67,15 +78,6 @@ class Application @Inject constructor(
     }
 
     /**
-     * Main entry point for the application.
-     *
-     * @param args Command line arguments
-     */
-    fun main(args: Array<String>) {
-        Quarkus.run(*args)
-    }
-
-    /**
      * Logs the startup banner with application name and version.
      */
     private fun logStartupBanner() {
@@ -83,7 +85,7 @@ class Application @Inject constructor(
             appendLine()
             appendLine("╔═══════════════════════════════════════════════════════════════╗")
             appendLine("║                                                               ║")
-            appendLine("║              $APP_NAME v$APP_VERSION                             ║")
+            appendLine("║              $APP_NAME v$APP_VERSION                              ║")
             appendLine("║              Secure HTTP Tunnel Relay Server                  ║")
             appendLine("║                                                               ║")
             appendLine("╚═══════════════════════════════════════════════════════════════╝")
