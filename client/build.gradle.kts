@@ -22,7 +22,7 @@ dependencies {
     testImplementation("com.fasterxml.jackson.datatype:jackson-datatype-jsr310")
     testImplementation("com.fasterxml.jackson.module:jackson-module-kotlin")
     testImplementation("org.glassfish.tyrus:tyrus-server:2.1.5")
-    testImplementation("org.glassfish.tyrus:tyrus-container-grizzly-server:2.1.5")
+    testImplementation("org.glassfish.tyrus:tyrus-container-grizzly-server:2.2.2")
 }
 
 quarkus {
