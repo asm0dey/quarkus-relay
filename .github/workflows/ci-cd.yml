@@ -68,6 +68,7 @@ jobs:
       - name: Rename artifact
         run: |
           mv server/build/server-1.0.0-SNAPSHOT-runner server/build/relay-server-${{ matrix.target }}
+          chmod +x server/build/relay-server-${{ matrix.target }}
           sha256sum server/build/relay-server-${{ matrix.target }} > server/build/relay-server-${{ matrix.target }}.sha256
 
       - name: Upload Artifact
@@ -142,6 +143,9 @@ jobs:
         run: |
           BIN_NAME=relay-client-${{ matrix.type }}-${{ matrix.arch }}${{ matrix.ext }}
           mv client/build/client-1.0.0-SNAPSHOT-runner client/build/$BIN_NAME
+          if [ "${{ matrix.os }}" != "windows-latest" ]; then
+            chmod +x client/build/$BIN_NAME
+          fi
           if [ "${{ matrix.os }}" = "windows-latest" ]; then
             certutil -hashfile client/build/$BIN_NAME SHA256 | grep -v "hash" | grep -v "CertUtil" | tr -d ' \n\r' > client/build/$BIN_NAME.sha256
           else
@@ -212,6 +216,7 @@ jobs:
           WORKDIR /work/
           RUN chown 1001 /work && chmod "g+rwX" /work && chown 1001:root /work
           COPY --chown=1001:root server/build/relay-server-${{ matrix.target }} /work/application
+          RUN chmod +x /work/application
           EXPOSE 8080
           USER 1001
           ENTRYPOINT ["./application", "-Dquarkus.http.host=0.0.0.0"]
