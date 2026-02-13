@@ -6,7 +6,7 @@ import com.fasterxml.jackson.annotation.JsonProperty
  * Enumeration of message types used in the Relay protocol.
  */
 enum class MessageType(
-    @param:JsonProperty("type")
+    @field:JsonProperty("type")
     val type: String
 ) {
     REQUEST("REQUEST"),

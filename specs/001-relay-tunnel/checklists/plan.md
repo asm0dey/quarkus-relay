@@ -33,7 +33,7 @@
 
 - [x] Message protocol documented in contracts/
 - [x] API contracts between components defined
-- [ ] Data contracts (if database used) - N/A for in-memory
+- [x] Data contracts (if database used) - N/A for in-memory
 
 ## Readiness
 

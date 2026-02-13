@@ -2,7 +2,6 @@ package org.relay.client.proxy
 
 import jakarta.enterprise.context.ApplicationScoped
 import jakarta.inject.Inject
-import okhttp3.Headers.Companion.toHeaders
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.OkHttpClient
@@ -10,17 +9,13 @@ import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import okhttp3.Response
 import okio.IOException
-import org.relay.client.config.ClientConfig
 import org.relay.shared.protocol.ResponsePayload
 import org.slf4j.LoggerFactory
 import java.time.Duration
 import java.util.Base64
-import java.util.concurrent.TimeUnit
 
 @ApplicationScoped
-class LocalHttpProxy @Inject constructor(
-    private val clientConfig: ClientConfig
-) {
+class LocalHttpProxy @Inject constructor() {
     private val logger = LoggerFactory.getLogger(LocalHttpProxy::class.java)
     
     private val httpClient: OkHttpClient = OkHttpClient.Builder()
@@ -62,7 +57,7 @@ class LocalHttpProxy @Inject constructor(
         headers: Map<String, String>,
         body: String?
     ): ResponsePayload {
-        val localUrl = clientConfig.localUrl()
+        val localUrl = System.getProperty("relay.client.local-url")
         
         return try {
             // Build the full URL
@@ -110,9 +105,11 @@ class LocalHttpProxy @Inject constructor(
             val request = requestBuilder.build()
             
             logger.debug("Proxying {} request to {}", method, url)
+            logger.debug("Request headers: {}", filteredHeaders.keys)
             
             // Execute request
             httpClient.newCall(request).execute().use { response ->
+                logger.debug("Received response from local application: statusCode={}", response.code)
                 convertToPayload(response)
             }
             

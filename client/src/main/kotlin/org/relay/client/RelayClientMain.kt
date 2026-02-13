@@ -56,6 +56,23 @@ class RelayClientMain @Inject constructor(
     private val clientEndpoint: WebSocketClientEndpoint,
     private val reconnectionHandler: ReconnectionHandler
 ): Runnable, QuarkusApplication, TunnelCommandInterface {
+    companion object {
+        // Note: Argument parsing is now handled by TunnelCommand via RelayClientMain
+        // System properties are set by TunnelCommand.call() before Quarkus starts
+
+        // Exit code constants per spec
+        private const val EXIT_CODE_INVALID_ARGS = 1
+        private const val EXIT_CODE_CONNECTION_FAILED = 2
+        private const val EXIT_CODE_AUTH_FAILED = 3
+
+        // Exit code 130 = 128 + SIGINT(2) - standard Unix convention for interrupted process
+        private const val EXIT_CODE_SIGINT = 130
+
+        @JvmStatic
+        fun main(args: Array<String>) {
+            Quarkus.run(RelayClientMain::class.java, *args)
+        }
+    }
 
     @Parameters(index = "0", description = ["Local HTTP service port (1-65535)"], arity = "0..1")
     override var port: Int = 0
@@ -82,6 +99,11 @@ class RelayClientMain @Inject constructor(
     override var verbose: Boolean = false
 
     override fun run() {
+        if (verbose) {
+            System.setProperty("quarkus.log.level", "DEBUG")
+            System.setProperty("quarkus.log.category.\"org.relay\".level", "DEBUG")
+        }
+
         // If help was requested (via mixinStandardHelpOptions), Picocli should have handled it
         // But in Quarkus integration, we need to check if port is 0 (not provided)
         // If port is 0 and required flags are missing, help was likely requested
@@ -133,23 +155,6 @@ class RelayClientMain @Inject constructor(
     private var exitCode = 0
     private val authenticationFailed = AtomicBoolean(false)
 
-    companion object {
-        // Note: Argument parsing is now handled by TunnelCommand via RelayClientMain
-        // System properties are set by TunnelCommand.call() before Quarkus starts
-
-        // Exit code constants per spec
-        private const val EXIT_CODE_INVALID_ARGS = 1
-        private const val EXIT_CODE_CONNECTION_FAILED = 2
-        private const val EXIT_CODE_AUTH_FAILED = 3
-
-        // Exit code 130 = 128 + SIGINT(2) - standard Unix convention for interrupted process
-        private const val EXIT_CODE_SIGINT = 130
-
-        @JvmStatic
-        fun main(args: Array<String>) {
-            Quarkus.run(RelayClientMain::class.java, *args)
-        }
-    }
 
     fun onStart(@Observes event: StartupEvent) {
         // Startup event - application initialized
@@ -231,6 +236,9 @@ class RelayClientMain @Inject constructor(
 
 
     private fun connect(params: ConnectionParameters): Boolean {
+        logger.debug("Connecting to Relay server: localUrl={}, subdomain={}, insecure={}", 
+            params.localUrl, params.subdomain ?: "auto", params.insecure)
+
         return try {
             logger.info("Connecting to ${params.serverUrl}...")
 
@@ -256,7 +264,7 @@ class RelayClientMain @Inject constructor(
             }
 
             if (clientEndpoint.isConnected()) {
-                logger.info("WebSocket connection established")
+                logger.info("WebSocket connection established. Assigned URL: {}", clientEndpoint.publicUrl)
                 reconnectionHandler.reset()
                 true
             } else {

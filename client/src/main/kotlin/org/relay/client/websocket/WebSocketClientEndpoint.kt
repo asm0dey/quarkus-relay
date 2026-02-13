@@ -69,7 +69,7 @@ class WebSocketClientEndpoint @Inject constructor(
      */
     @OnOpen
     fun onOpen(session: Session) {
-        logger.info("WebSocket connection opened: {}", session.id)
+        logger.info("WebSocket connection opened: session={}", session.id)
         this.session = session
         this.connected.set(true)
 
@@ -86,7 +86,8 @@ class WebSocketClientEndpoint @Inject constructor(
      */
     @OnMessage
     fun onMessage(message: String, session: Session) {
-        logger.debug("Received message: {}", message.take(200))
+        logger.debug("Received message from server: session={}, size={}, preview={}", 
+            session.id, message.length, message.take(200))
 
         try {
             val envelope = objectMapper.readValue(message, Envelope::class.java)
@@ -149,10 +150,15 @@ class WebSocketClientEndpoint @Inject constructor(
     private fun handleRequestMessage(envelope: Envelope) {
         // First check if this is a WebSocket frame message
         try {
-            val framePayload = objectMapper.treeToValue(envelope.payload, WebSocketFramePayload::class.java)
-            // This is a WebSocket frame from the server (external -> local)
-            localWebSocketProxy.handleFrameFromServer(envelope.correlationId, framePayload)
-            return
+            val payload = envelope.payload
+            if (payload.has("type") && (payload.has("data") || payload.has("closeCode"))) {
+                val framePayload = objectMapper.treeToValue(envelope.payload, WebSocketFramePayload::class.java)
+                logger.debug("Received WebSocket frame from server: correlationId={}, type={}", 
+                    envelope.correlationId, framePayload.type)
+                // This is a WebSocket frame from the server (external -> local)
+                localWebSocketProxy.handleFrameFromServer(envelope.correlationId, framePayload)
+                return
+            }
         } catch (e: Exception) {
             // Not a WebSocket frame, proceed with HTTP request handling
         }
@@ -165,7 +171,8 @@ class WebSocketClientEndpoint @Inject constructor(
             return
         }
 
-        logger.debug("Handling request: {} {}", requestPayload.method, requestPayload.path)
+        logger.debug("Handling HTTP request: correlationId={}, method={}, path={}", 
+            envelope.correlationId, requestPayload.method, requestPayload.path)
 
         // Check if this is a WebSocket upgrade request
         if (requestPayload.webSocketUpgrade) {
@@ -176,10 +183,13 @@ class WebSocketClientEndpoint @Inject constructor(
         // Execute the proxy request asynchronously
         executor.submit {
             try {
+                logger.debug("Proxying request to local application: correlationId={}", envelope.correlationId)
                 val responsePayload = localHttpProxy.proxyRequest(requestPayload)
+                logger.debug("Sending response back to server: correlationId={}, statusCode={}", 
+                    envelope.correlationId, responsePayload.statusCode)
                 sendResponse(envelope.correlationId, responsePayload)
             } catch (e: Exception) {
-                logger.error("Error proxying request", e)
+                logger.error("Error proxying request: correlationId={}", envelope.correlationId, e)
                 sendErrorResponse(envelope.correlationId, 502, "Bad Gateway: ${e.message}")
             }
         }
@@ -220,6 +230,7 @@ class WebSocketClientEndpoint @Inject constructor(
      */
     private fun sendWebSocketFrame(correlationId: String, framePayload: WebSocketFramePayload) {
         try {
+            logger.debug("Sending WebSocket frame to server: correlationId={}, type={}", correlationId, framePayload.type)
             val envelope = Envelope(
                 correlationId = correlationId,
                 type = MessageType.RESPONSE,
@@ -324,6 +335,7 @@ class WebSocketClientEndpoint @Inject constructor(
      * Sends a RESPONSE message back to the server.
      */
     private fun sendResponse(correlationId: String, responsePayload: ResponsePayload) {
+        logger.debug("Sending response to server: correlationId={}, statusCode={}", correlationId, responsePayload.statusCode)
         val envelope = Envelope(
             correlationId = correlationId,
             type = MessageType.RESPONSE,
@@ -331,7 +343,6 @@ class WebSocketClientEndpoint @Inject constructor(
         )
 
         sendMessage(envelope)
-        logger.debug("Sent response for correlationId: {}", correlationId)
     }
 
     /**
@@ -355,14 +366,16 @@ class WebSocketClientEndpoint @Inject constructor(
         return if (currentSession != null && currentSession.isOpen) {
             try {
                 val message = objectMapper.writeValueAsString(envelope)
+                logger.debug("Sending message to server: type={}, correlationId={}, size={}", 
+                    envelope.type, envelope.correlationId, message.length)
                 currentSession.asyncRemote.sendText(message)
                 true
             } catch (e: Exception) {
-                logger.error("Failed to send message", e)
+                logger.error("Failed to send message: correlationId={}", envelope.correlationId, e)
                 false
             }
         } else {
-            logger.warn("Cannot send message: session is not open")
+            logger.warn("Cannot send message: session is not open. CorrelationId: {}", envelope.correlationId)
             false
         }
     }

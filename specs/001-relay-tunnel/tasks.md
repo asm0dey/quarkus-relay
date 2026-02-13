@@ -99,9 +99,9 @@
 
 ### Integration Tests
 
-- [ ] T421 Write integration test: valid secret key connection receives subdomain (TS-001)
-- [ ] T422 Write integration test: invalid secret key rejected with 401 (TS-002)
-- [ ] T423 Write integration test: server unreachable error handling (TS-003)
+- [x] T421 Write integration test: valid secret key connection receives subdomain (TS-001)
+- [x] T422 Write integration test: invalid secret key rejected with 401 (TS-002)
+- [x] T423 Write integration test: server unreachable error handling (TS-003)
 
 ---
 
@@ -133,11 +133,11 @@
 
 ### Integration Tests
 
-- [ ] T521 Write integration test: HTTP GET forwarding end-to-end (TS-004)
-- [ ] T522 Write integration test: POST with body forwarding (TS-005)
-- [ ] T523 Write integration test: local app unavailable returns 502/503 (TS-006)
-- [ ] T524 Write integration test: request timeout returns 504 (TS-205)
-- [ ] T525 Write integration test: client disconnect during request (TS-202)
+- [x] T521 Write integration test: HTTP GET forwarding end-to-end (TS-004)
+- [x] T522 Write integration test: POST with body forwarding (TS-005)
+- [x] T523 Write integration test: local app unavailable returns 502/503 (TS-006)
+- [x] T524 Write integration test: request timeout returns 504 (TS-205)
+- [x] T525 Write integration test: client disconnect during request (TS-202)
 
 ---
 
@@ -158,11 +158,11 @@
 
 ### Integration Tests
 
-- [ ] T611 Write integration test: multiple clients connect simultaneously (TS-007)
-- [ ] T612 Write integration test: requests route to correct tunnel (TS-008)
-- [ ] T613 Write integration test: same secret key creates independent tunnels (TS-009)
-- [ ] T614 Write integration test: subdomain collision handling (TS-203)
-- [ ] T615 Write load test: 100 concurrent tunnels, 1000 req/s (SC-003)
+- [x] T611 Write integration test: multiple clients connect simultaneously (TS-007)
+- [x] T612 Write integration test: requests route to correct tunnel (TS-008)
+- [x] T613 Write integration test: same secret key creates independent tunnels (TS-009)
+- [x] T614 Write integration test: subdomain collision handling (TS-203)
+- [x] T615 Write load test: 100 concurrent tunnels, 1000 req/s (SC-003)
 
 ---
 
@@ -183,8 +183,8 @@
 
 ### Integration Tests
 
-- [ ] T711 Write integration test: custom base domain configuration (TS-010)
-- [ ] T712 Write integration test: secret key validation rules (TS-011)
+- [x] T711 Write integration test: custom base domain configuration (TS-010)
+- [x] T712 Write integration test: secret key validation rules (TS-011)
 
 ---
 
@@ -198,25 +198,25 @@
 
 ### Server Implementation
 
-- [ ] T801 Detect WebSocket upgrade requests in SubdomainRoutingHandler
-- [ ] T802 Implement WebSocket-over-WebSocket proxying for external connections
-- [ ] T803 Forward WebSocket messages bidirectionally (external ↔ client)
-- [ ] T804 Handle WebSocket connection close from either side
-- [ ] T805 Implement invalid WebSocket message handling (close with 1008) (for TS-207)
+- [x] T801 Detect WebSocket upgrade requests in SubdomainRoutingHandler
+- [x] T802 Implement WebSocket-over-WebSocket proxying for external connections
+- [x] T803 Forward WebSocket messages bidirectionally (external ↔ client)
+- [x] T804 Handle WebSocket connection close from either side
+- [x] T805 Implement invalid WebSocket message handling (close with 1008) (for TS-207)
 
 ### Client Implementation
 
-- [ ] T811 Handle WebSocket REQUEST messages from server
-- [ ] T812 Establish local WebSocket connection to target application
-- [ ] T813 Proxy messages between server and local WebSocket
-- [ ] T814 Handle local WebSocket connection errors
+- [x] T811 Handle WebSocket REQUEST messages from server
+- [x] T812 Establish local WebSocket connection to target application
+- [x] T813 Proxy messages between server and local WebSocket
+- [x] T814 Handle local WebSocket connection errors
 
 ### Integration Tests
 
-- [ ] T821 Write integration test: WebSocket upgrade forwarding (TS-012)
-- [ ] T822 Write integration test: external → local WebSocket message (TS-013)
-- [ ] T823 Write integration test: local → external WebSocket message (TS-014)
-- [ ] T824 Write integration test: invalid WebSocket message handling (TS-207)
+- [x] T821 Write integration test: WebSocket upgrade forwarding (TS-012)
+- [x] T822 Write integration test: external → local WebSocket message (TS-013)
+- [x] T823 Write integration test: local → external WebSocket message (TS-014)
+- [x] T824 Write integration test: invalid WebSocket message handling (TS-207)
 
 ---
 
@@ -246,9 +246,9 @@
 
 ### Integration Tests
 
-- [ ] T921 Write integration test: graceful shutdown with in-flight requests (TS-015)
-- [ ] T922 Write integration test: immediate shutdown behavior (TS-016)
-- [ ] T923 Write integration test: client exponential backoff reconnection (TS-017)
+- [x] T921 Write integration test: graceful shutdown with in-flight requests (TS-015)
+- [x] T922 Write integration test: immediate shutdown behavior (TS-016)
+- [x] T923 Write integration test: client exponential backoff reconnection (TS-017)
 
 ---
 
@@ -261,17 +261,17 @@
 
 ### Implementation
 
-- [ ] T1001 Implement 10MB body size limit with 413 response (for TS-204)
-- [ ] T1002 Implement base64 encoding/decoding for large request/response bodies
-- [ ] T1003 Handle non-HTTP response from local app (return 502) (for TS-206)
-- [ ] T1004 Implement resource limit monitoring
-- [ ] T1005 Reject new connections when resources exhausted (503) (for TS-208)
+- [x] T1001 Implement 10MB body size limit with 413 response (for TS-204)
+- [x] T1002 Implement base64 encoding/decoding for large request/response bodies
+- [x] T1003 Handle non-HTTP response from local app (return 502) (for TS-206)
+- [x] T1004 Implement resource limit monitoring
+- [x] T1005 Reject new connections when resources exhausted (503) (for TS-208)
 
 ### Integration Tests
 
-- [ ] T1011 Write integration test: large body handling (5MB) (TS-204)
-- [ ] T1012 Write integration test: non-HTTP local response (TS-206)
-- [ ] T1013 Write integration test: resource exhaustion rejection (TS-208)
+- [x] T1011 Write integration test: large body handling (5MB) (TS-204)
+- [x] T1012 Write integration test: non-HTTP local response (TS-206)
+- [x] T1013 Write integration test: resource exhaustion rejection (TS-208)
 
 ---
 

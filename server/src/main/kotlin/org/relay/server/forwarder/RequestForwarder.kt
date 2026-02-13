@@ -7,6 +7,7 @@ import jakarta.enterprise.context.ApplicationScoped
 import jakarta.inject.Inject
 import org.relay.server.config.RelayConfig
 import org.relay.server.tunnel.PendingRequest
+import org.relay.server.tunnel.RequestCancelledException
 import org.relay.server.tunnel.TunnelRegistry
 import org.relay.shared.protocol.Envelope
 import org.relay.shared.protocol.MessageType
@@ -67,8 +68,8 @@ class RequestForwarder @Inject constructor(
         val timer = Timer.start(meterRegistry)
         val correlationId = generateCorrelationId()
 
-        logger.debug("Forwarding request to subdomain={}: method={}, path={}",
-            subdomain, requestPayload.method, requestPayload.path)
+        logger.debug("Forwarding request: subdomain={}, correlationId={}, method={}, path={}, headersCount={}",
+            subdomain, correlationId, requestPayload.method, requestPayload.path, requestPayload.headers.size)
 
         return try {
             // Look up the tunnel
@@ -108,7 +109,7 @@ class RequestForwarder @Inject constructor(
 
             // Register pending request
             val pendingRequest = PendingRequest(correlationId, responseFuture, timeoutTask)
-            if (!tunnelRegistry.registerPendingRequest(correlationId, pendingRequest)) {
+            if (!tunnelRegistry.registerPendingRequest(subdomain, correlationId, pendingRequest)) {
                 timeoutTask.cancel(false)
                 return ForwardResult(
                     success = false,
@@ -123,7 +124,8 @@ class RequestForwarder @Inject constructor(
             val sendResult = sendViaWebSocket(tunnel.session, envelopeJson)
 
             if (!sendResult) {
-                tunnelRegistry.unregisterPendingRequest(correlationId)
+                logger.error("Failed to send request via WebSocket: subdomain={}, correlationId={}", subdomain, correlationId)
+                tunnelRegistry.unregisterPendingRequest(subdomain, correlationId)
                 timeoutTask.cancel(false)
                 return ForwardResult(
                     success = false,
@@ -134,10 +136,20 @@ class RequestForwarder @Inject constructor(
                 }
             }
 
-            // Wait for response
-            val response = responseFuture.get(timeoutSeconds, TimeUnit.SECONDS)
+            logger.debug("Request sent via WebSocket: correlationId={}, waiting for response...", correlationId)
 
-            tunnelRegistry.unregisterPendingRequest(correlationId)
+            // Wait for response
+            val response = try {
+                responseFuture.get(timeoutSeconds, TimeUnit.SECONDS)
+            } catch (e: Exception) {
+                logger.warn("Error or timeout waiting for response: correlationId={}, message={}", correlationId, e.message)
+                throw e
+            }
+
+            logger.debug("Received response from tunnel client: correlationId={}, statusCode={}", 
+                correlationId, response.statusCode)
+
+            tunnelRegistry.unregisterPendingRequest(subdomain, correlationId)
 
             ForwardResult(
                 success = true,
@@ -147,7 +159,7 @@ class RequestForwarder @Inject constructor(
             }
 
         } catch (e: java.util.concurrent.TimeoutException) {
-            tunnelRegistry.unregisterPendingRequest(correlationId)
+            tunnelRegistry.unregisterPendingRequest(subdomain, correlationId)
             logger.warn("Request timeout for subdomain={}: correlationId={}", subdomain, correlationId)
             ForwardResult(
                 success = false,
@@ -157,14 +169,28 @@ class RequestForwarder @Inject constructor(
                 recordMetrics(timer, subdomain, false, GATEWAY_TIMEOUT_STATUS)
             }
         } catch (e: Exception) {
-            tunnelRegistry.unregisterPendingRequest(correlationId)
-            logger.error("Error forwarding request to subdomain={}", subdomain, e)
-            ForwardResult(
-                success = false,
-                errorStatusCode = BAD_GATEWAY_STATUS,
-                errorMessage = "Error forwarding request: ${e.message}"
-            ).also {
-                recordMetrics(timer, subdomain, false, BAD_GATEWAY_STATUS)
+            val rootCause = generateSequence(e as Throwable) { it.cause }.last()
+            logger.error("Failed to forward request: correlationId={}, error={}, type={}", 
+                correlationId, rootCause.message, rootCause.javaClass.simpleName)
+
+            val cause = e.cause
+            if (cause is RequestCancelledException || cause?.message == "Tunnel disconnected") {
+                recordMetrics(timer, subdomain, false, SERVICE_UNAVAILABLE_STATUS)
+                ForwardResult(
+                    success = false,
+                    errorStatusCode = SERVICE_UNAVAILABLE_STATUS,
+                    errorMessage = cause.message ?: "Tunnel disconnected"
+                )
+            } else {
+                tunnelRegistry.unregisterPendingRequest(subdomain, correlationId)
+                logger.error("Error forwarding request to subdomain={}", subdomain, e)
+                ForwardResult(
+                    success = false,
+                    errorStatusCode = BAD_GATEWAY_STATUS,
+                    errorMessage = "Error forwarding request: ${e.message}"
+                ).also {
+                    recordMetrics(timer, subdomain, false, BAD_GATEWAY_STATUS)
+                }
             }
         }
     }

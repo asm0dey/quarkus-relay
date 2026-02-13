@@ -2,6 +2,8 @@ package org.relay.server.integration
 
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule
+import com.fasterxml.jackson.module.kotlin.KotlinModule
+import io.quarkus.test.common.http.TestHTTPResource
 import io.quarkus.test.junit.QuarkusTest
 import io.quarkus.test.junit.TestProfile
 import jakarta.inject.Inject
@@ -15,6 +17,7 @@ import org.relay.server.tunnel.TunnelRegistry
 import org.relay.shared.protocol.Envelope
 import org.relay.shared.protocol.MessageType
 import java.net.URI
+import java.net.URL
 import java.time.Duration
 import java.util.concurrent.CopyOnWriteArrayList
 
@@ -25,7 +28,9 @@ class AuthenticationIntegrationTest {
     @Inject
     lateinit var tunnelRegistry: TunnelRegistry
 
-    private val mapper = ObjectMapper().registerModule(JavaTimeModule())
+    private val mapper = ObjectMapper()
+        .registerModule(KotlinModule.Builder().build())
+        .registerModule(JavaTimeModule())
     private val sessions = mutableListOf<Session>()
 
     companion object {
@@ -52,8 +57,10 @@ class AuthenticationIntegrationTest {
 
         awaitMessage(client)
         
-        val envelope = parseEnvelope(client.messages.first())
-        assertNotNull(envelope)
+        val json = client.messages.first()
+        println("[DEBUG_LOG] Received message: $json")
+        val envelope = parseEnvelope(json)
+        assertNotNull(envelope, "Envelope should not be null for message: $json")
         assertEquals(MessageType.CONTROL, envelope!!.type)
         
         val payload = envelope.payload
@@ -94,11 +101,14 @@ class AuthenticationIntegrationTest {
         assertEquals(3, tunnelRegistry.size())
     }
 
+    @TestHTTPResource
+    var baseUrl: URL? = null
+
     private fun connectWebSocket(secretKey: String): Pair<Session, TestWsClient> {
         val container = ContainerProvider.getWebSocketContainer()
         val client = TestWsClient()
         val session = container.connectToServer(
-            client, URI("ws://localhost:8081/ws?secret=$secretKey")
+            client, URI("ws://localhost:${baseUrl!!.port}/ws?secret=$secretKey")
         )
         sessions.add(session)
         return session to client

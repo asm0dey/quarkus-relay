@@ -3,6 +3,7 @@ package org.relay.client.retry
 import jakarta.enterprise.context.ApplicationScoped
 import jakarta.inject.Inject
 import org.relay.client.config.ClientConfig
+import org.slf4j.LoggerFactory
 import java.time.Duration
 import kotlin.random.Random
 
@@ -15,6 +16,7 @@ import kotlin.random.Random
 class ReconnectionHandler @Inject constructor(
     private val clientConfig: ClientConfig
 ) {
+    private val logger = LoggerFactory.getLogger(ReconnectionHandler::class.java)
 
     /**
      * Current delay for the next reconnection attempt.
@@ -74,6 +76,7 @@ class ReconnectionHandler @Inject constructor(
     fun recordAttempt() {
         attemptCount++
         currentDelay = calculateNextDelay()
+        logger.info("Recorded reconnection attempt #{}, next delay: {}ms", attemptCount, currentDelay.toMillis())
     }
 
     /**
@@ -81,6 +84,9 @@ class ReconnectionHandler @Inject constructor(
      * This should be called after a successful connection is established.
      */
     fun reset() {
+        if (attemptCount > 0) {
+            logger.info("Resetting reconnection handler after {} attempts", attemptCount)
+        }
         attemptCount = 0
         currentDelay = clientConfig.reconnect().initialDelay()
     }

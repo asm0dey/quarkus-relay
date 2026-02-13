@@ -11,12 +11,14 @@ import jakarta.enterprise.context.ApplicationScoped
 import jakarta.inject.Inject
 import org.relay.server.config.RelayConfig
 import org.relay.server.tunnel.PendingRequest
+import org.relay.server.tunnel.RequestCancelledException
 import org.relay.server.tunnel.TunnelRegistry
 import org.relay.shared.protocol.Envelope
 import org.relay.shared.protocol.MessageType
 import org.relay.shared.protocol.RequestPayload
 import org.relay.shared.protocol.ResponsePayload
 import org.slf4j.LoggerFactory
+import java.util.Base64
 import java.util.UUID
 import java.util.concurrent.CompletableFuture
 import java.util.concurrent.Executors
@@ -142,9 +144,27 @@ class SubdomainRoutingHandler @Inject constructor(
         val timer = Timer.start(meterRegistry)
         val request = routingContext.request()
         val response = routingContext.response()
+        val path = request.path()
+
+        // Ignore paths reserved for WebSocket endpoints
+        if (path.startsWith("/ws") || path.startsWith("/pub")) {
+            logger.info("Path {} is reserved for WebSocket endpoints, passing to next handler", path)
+            routingContext.next()
+            return
+        }
+
+        // Detect WebSocket upgrade
+        if (request.getHeader("Upgrade")?.lowercase() == "websocket") {
+            logger.debug("WebSocket upgrade detected for path: {}, passing to next handler", path)
+            routingContext.next()
+            return
+        }
+
+        logger.debug("Processing request: {} {}", request.method(), path)
 
         // Extract and validate Host header
-        val host = request.getHeader("Host") ?: run {
+        val host = request.getHeader("X-Relay-Subdomain") ?: request.getHeader("Host") ?: run {
+            logger.debug("Request missing Host and X-Relay-Subdomain headers")
             recordMetrics(timer, "unknown", 400)
             sendError(response, 400, MISSING_HOST_MESSAGE)
             return
@@ -152,7 +172,9 @@ class SubdomainRoutingHandler @Inject constructor(
 
         // Parse subdomain
         val subdomain = extractSubdomain(host)
+        logger.debug("Extracted subdomain: {} from host: {}", subdomain, host)
         if (subdomain.isBlank()) {
+            logger.debug("Invalid/empty subdomain extracted from host: {}", host)
             recordMetrics(timer, "unknown", 400)
             sendError(response, 400, INVALID_SUBDOMAIN_MESSAGE)
             return
@@ -202,6 +224,7 @@ class SubdomainRoutingHandler @Inject constructor(
 
         // Generate correlation ID
         val correlationId = UUID.randomUUID().toString()
+        logger.debug("Generated correlationId: {} for request: {} {}", correlationId, method, path)
 
         // Handle request with body for POST, PUT, PATCH
         val hasBody = method == HttpMethod.POST || method == HttpMethod.PUT || method == HttpMethod.PATCH
@@ -233,9 +256,34 @@ class SubdomainRoutingHandler @Inject constructor(
         val response = routingContext.response()
         val maxBodySize = relayConfig.maxBodySize()
 
+        // If body is already read (e.g. by BodyHandler)
+        val body = routingContext.body()
+        if (body != null) {
+            logger.debug("Request body already present in context (size: {})", body.length())
+            if (body.length() > maxBodySize) {
+                logger.warn("Request body size {} exceeds max {}", body.length(), maxBodySize)
+                recordMetrics(timer, subdomain, 413)
+                sendError(response, 413, BODY_TOO_LARGE_MESSAGE)
+                return
+            }
+            val requestPayload = try {
+                buildRequestPayload(routingContext, body.asString())
+            } catch (e: Exception) {
+                logger.error("Failed to build request payload from existing body", e)
+                recordMetrics(timer, subdomain, 500)
+                sendError(response, 500, "$INTERNAL_ERROR_MESSAGE: ${e.message}")
+                return
+            }
+            sendRequestAndAwaitResponse(routingContext, sessionId, correlationId, subdomain, requestPayload, timer)
+            return
+        }
+
+        logger.debug("Waiting for request body...")
         request.bodyHandler { bodyBuffer ->
+            logger.debug("Received request body (size: {})", bodyBuffer.length())
             // Check body size
             if (bodyBuffer.length() > maxBodySize) {
+                logger.warn("Request body size {} exceeds max {}", bodyBuffer.length(), maxBodySize)
                 recordMetrics(timer, subdomain, 413)
                 sendError(response, 413, BODY_TOO_LARGE_MESSAGE)
                 return@bodyHandler
@@ -279,6 +327,7 @@ class SubdomainRoutingHandler @Inject constructor(
         val response = routingContext.response()
 
         // Build request payload without body
+        logger.debug("Handling request without body: {} correlationId={}", routingContext.request().path(), correlationId)
         val requestPayload = try {
             buildRequestPayload(routingContext, null)
         } catch (e: Exception) {
@@ -401,6 +450,9 @@ class SubdomainRoutingHandler @Inject constructor(
         // Create pending request future
         val responseFuture = CompletableFuture<ResponsePayload>()
 
+        logger.debug("Sending request to tunnel: subdomain={}, correlationId={}, sessionId={}", 
+            subdomain, correlationId, sessionId)
+
         // Schedule timeout (30 seconds)
         val timeoutMillis = relayConfig.requestTimeout().toMillis()
         val timeoutTask = scheduledExecutor.schedule({
@@ -411,7 +463,7 @@ class SubdomainRoutingHandler @Inject constructor(
 
         // Register pending request
         val pendingRequest = PendingRequest(correlationId, responseFuture, timeoutTask)
-        if (!tunnelRegistry.registerPendingRequest(correlationId, pendingRequest)) {
+        if (!tunnelRegistry.registerPendingRequest(subdomain, correlationId, pendingRequest)) {
             timeoutTask.cancel(false)
             recordMetrics(timer, subdomain, 500)
             sendError(response, 500, "$INTERNAL_ERROR_MESSAGE: Duplicate correlation ID")
@@ -424,17 +476,23 @@ class SubdomainRoutingHandler @Inject constructor(
 
             tunnel.session.asyncRemote.sendText(envelopeJson) { sendResult ->
                 if (!sendResult.isOK) {
-                    tunnelRegistry.unregisterPendingRequest(correlationId)
+                    logger.error("Failed to send request via WebSocket for correlationId={}: {}", 
+                        correlationId, sendResult.exception?.message)
+                    tunnelRegistry.unregisterPendingRequest(subdomain, correlationId)
                     timeoutTask.cancel(false)
                     responseFuture.completeExceptionally(
                         Exception("Failed to send request via WebSocket: ${sendResult.exception?.message}")
                     )
+                } else {
+                    logger.debug("Successfully sent request envelope for correlationId={}", correlationId)
                 }
             }
 
             // Wait for response and stream back
             responseFuture.whenComplete { responsePayload, error ->
-                tunnelRegistry.unregisterPendingRequest(correlationId)
+                logger.debug("Response future completed for correlationId={}, hasError={}", 
+                    correlationId, error != null)
+                tunnelRegistry.unregisterPendingRequest(subdomain, correlationId)
 
                 routingContext.vertx().runOnContext {
                     when {
@@ -445,14 +503,26 @@ class SubdomainRoutingHandler @Inject constructor(
                                     recordMetrics(timer, subdomain, 504)
                                     sendError(response, 504, TIMEOUT_MESSAGE)
                                 }
+                                is RequestCancelledException -> {
+                                    logger.warn("Request cancelled for subdomain={}: {}", subdomain, error.message)
+                                    recordMetrics(timer, subdomain, 503)
+                                    sendError(response, 503, error.message ?: SERVICE_UNAVAILABLE_MESSAGE)
+                                }
                                 else -> {
-                                    logger.error("Error from tunnel for subdomain={}: {}", subdomain, error.message)
-                                    recordMetrics(timer, subdomain, 502)
-                                    sendError(response, 502, "Error from tunnel: ${error.message}")
+                                    if (error.message == "Tunnel disconnected") {
+                                        recordMetrics(timer, subdomain, 503)
+                                        sendError(response, 503, SERVICE_UNAVAILABLE_MESSAGE)
+                                    } else {
+                                        logger.error("Error from tunnel for subdomain={}: {}", subdomain, error.message)
+                                        recordMetrics(timer, subdomain, 502)
+                                        sendError(response, 502, "Error from tunnel: ${error.message}")
+                                    }
                                 }
                             }
                         }
                         else -> {
+                            logger.debug("Received response for correlationId={}, status={}", 
+                                correlationId, responsePayload.statusCode)
                             recordMetrics(timer, subdomain, responsePayload.statusCode)
                             streamResponse(response, responsePayload)
                         }
@@ -460,7 +530,7 @@ class SubdomainRoutingHandler @Inject constructor(
                 }
             }
         } catch (e: Exception) {
-            tunnelRegistry.unregisterPendingRequest(correlationId)
+            tunnelRegistry.unregisterPendingRequest(subdomain, correlationId)
             timeoutTask.cancel(false)
             recordMetrics(timer, subdomain, 500)
             sendError(response, 500, "$INTERNAL_ERROR_MESSAGE: ${e.message}")
@@ -495,7 +565,13 @@ class SubdomainRoutingHandler @Inject constructor(
      */
     private fun streamResponse(response: HttpServerResponse, payload: ResponsePayload) {
         // Check if response is already ended
-        if (response.ended()) return
+        if (response.ended()) {
+            logger.warn("Attempted to stream response but it is already ended")
+            return
+        }
+
+        logger.debug("Streaming response: status={}, headers count={}", 
+            payload.statusCode, payload.headers.size)
 
         // Set status code
         response.statusCode = payload.statusCode
@@ -510,7 +586,13 @@ class SubdomainRoutingHandler @Inject constructor(
 
         // Write body
         if (payload.body != null) {
-            response.end(payload.body)
+            try {
+                val decodedBody = Base64.getDecoder().decode(payload.body)
+                response.end(io.vertx.core.buffer.Buffer.buffer(decodedBody))
+            } catch (e: IllegalArgumentException) {
+                logger.warn("Failed to decode base64 body, sending as is", e)
+                response.end(payload.body)
+            }
         } else {
             response.end()
         }

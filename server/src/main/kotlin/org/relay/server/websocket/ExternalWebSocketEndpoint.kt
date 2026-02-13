@@ -20,7 +20,7 @@ import java.util.*
  *
  * WebSocket URL pattern: wss://{subdomain}.{domain}/ws/<asterisk>
  */
-@ServerEndpoint("/ws/{path:.*}")
+@ServerEndpoint("/pub")
 @ApplicationScoped
 class ExternalWebSocketEndpoint @Inject constructor(
     private val tunnelRegistry: TunnelRegistry,
@@ -52,14 +52,15 @@ class ExternalWebSocketEndpoint @Inject constructor(
     @OnOpen
     fun onOpen(
         session: Session,
-        @PathParam("path") path: String,
         config: EndpointConfig
     ) {
+        val path = "" // Simplified for fixed /pub endpoint
         val subdomain = extractSubdomainFromRequest(session)
         val correlationId = generateCorrelationId()
 
         logger.info("External WebSocket connection attempt: subdomain={}, path={}, session={}",
             subdomain, path, session.id)
+        logger.debug("External request URI: {}", session.requestURI)
 
         // Validate subdomain
         if (subdomain.isBlank()) {
@@ -102,10 +103,13 @@ class ExternalWebSocketEndpoint @Inject constructor(
      */
     @OnMessage
     fun onTextMessage(message: String, session: Session) {
-        val sessionInfo = externalSessions[session.id] ?: return
+        val sessionInfo = externalSessions[session.id] ?: run {
+            logger.warn("Received text message for unknown session: {}", session.id)
+            return
+        }
 
-        logger.debug("Received text message from external client: subdomain={}, length={}",
-            sessionInfo.subdomain, message.length)
+        logger.debug("Received text message from external client: subdomain={}, correlationId={}, length={}",
+            sessionInfo.subdomain, sessionInfo.correlationId, message.length)
 
         val tunnel = tunnelRegistry.getBySubdomain(sessionInfo.subdomain)
         if (tunnel == null || !tunnel.isActive()) {
@@ -123,10 +127,13 @@ class ExternalWebSocketEndpoint @Inject constructor(
      */
     @OnMessage
     fun onBinaryMessage(data: ByteArray, session: Session) {
-        val sessionInfo = externalSessions[session.id] ?: return
+        val sessionInfo = externalSessions[session.id] ?: run {
+            logger.warn("Received binary message for unknown session: {}", session.id)
+            return
+        }
 
-        logger.debug("Received binary message from external client: subdomain={}, size={}",
-            sessionInfo.subdomain, data.size)
+        logger.debug("Received binary message from external client: subdomain={}, correlationId={}, length={}",
+            sessionInfo.subdomain, sessionInfo.correlationId, data.size)
 
         val tunnel = tunnelRegistry.getBySubdomain(sessionInfo.subdomain)
         if (tunnel == null || !tunnel.isActive()) {
@@ -148,8 +155,8 @@ class ExternalWebSocketEndpoint @Inject constructor(
     fun onClose(session: Session, closeReason: CloseReason) {
         val sessionInfo = externalSessions.remove(session.id) ?: return
 
-        logger.info("External WebSocket closed: subdomain={}, code={}, reason={}",
-            sessionInfo.subdomain, closeReason.closeCode.code, closeReason.reasonPhrase)
+        logger.info("External WebSocket closed: session={}, subdomain={}, correlationId={}, code={}, reason={}",
+            session.id, sessionInfo.subdomain, sessionInfo.correlationId, closeReason.closeCode.code, closeReason.reasonPhrase)
 
         // Notify tunnel client
         val tunnel = tunnelRegistry.getBySubdomain(sessionInfo.subdomain)
@@ -190,6 +197,9 @@ class ExternalWebSocketEndpoint @Inject constructor(
      * Routes them to the appropriate external WebSocket session.
      */
     fun handleFrameFromTunnel(subdomain: String, correlationId: String, framePayload: WebSocketFramePayload) {
+        logger.debug("Received frame from tunnel: subdomain={}, correlationId={}, type={}", 
+            subdomain, correlationId, framePayload.type)
+
         val tunnel = tunnelRegistry.getBySubdomain(subdomain) ?: return
         val proxySession = tunnel.webSocketProxies[correlationId] ?: return
 
@@ -232,6 +242,15 @@ class ExternalWebSocketEndpoint @Inject constructor(
      * Extracts subdomain from the WebSocket session request URI.
      */
     private fun extractSubdomainFromRequest(session: Session): String {
+        // First try the X-Relay-Subdomain query parameter or header if available via session user properties
+        val queryParams = parseQueryString(session.requestURI.query)
+        logger.info("Parsing query string: {} result: {}", session.requestURI.query, queryParams)
+        val xRelaySubdomain = queryParams?.get("X-Relay-Subdomain")
+        if (xRelaySubdomain != null) {
+            logger.info("Found X-Relay-Subdomain in query: {}", xRelaySubdomain)
+            return xRelaySubdomain
+        }
+
         val requestUri = session.requestURI
         val host = requestUri.host ?: return ""
         val baseDomain = relayConfig.domain()
@@ -322,7 +341,9 @@ class ExternalWebSocketEndpoint @Inject constructor(
     private fun parseQueryString(query: String?): Map<String, String>? {
         if (query.isNullOrBlank()) return null
 
-        return query.split("&")
+        val actualQuery = query.substringBefore('?')
+
+        return actualQuery.split("&")
             .mapNotNull { param ->
                 val parts = param.split("=", limit = 2)
                 if (parts.size == 2) {

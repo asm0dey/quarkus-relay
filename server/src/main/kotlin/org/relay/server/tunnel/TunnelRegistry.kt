@@ -3,6 +3,7 @@ package org.relay.server.tunnel
 import jakarta.annotation.PreDestroy
 import jakarta.enterprise.context.ApplicationScoped
 import org.relay.shared.protocol.ResponsePayload
+import org.slf4j.LoggerFactory
 import java.util.concurrent.ConcurrentHashMap
 
 /**
@@ -15,8 +16,11 @@ import java.util.concurrent.ConcurrentHashMap
 @ApplicationScoped
 class TunnelRegistry {
 
+    private val logger = LoggerFactory.getLogger(TunnelRegistry::class.java)
+
     private val tunnels = ConcurrentHashMap<String, TunnelConnection>()
     private val pendingRequests = ConcurrentHashMap<String, PendingRequest>()
+    private val requestsPerSubdomain = ConcurrentHashMap<String, MutableSet<String>>()
 
     /**
      * Registers a new tunnel connection.
@@ -26,7 +30,15 @@ class TunnelRegistry {
      * @return true if registration succeeded, false if a tunnel with the given subdomain already exists
      */
     fun register(subdomain: String, connection: TunnelConnection): Boolean {
-        return tunnels.putIfAbsent(subdomain, connection) == null
+        logger.debug("Registering tunnel: subdomain={}", subdomain)
+        requestsPerSubdomain[subdomain] = ConcurrentHashMap.newKeySet()
+        val success = tunnels.putIfAbsent(subdomain, connection) == null
+        if (success) {
+            logger.info("Successfully registered tunnel: subdomain={}", subdomain)
+        } else {
+            logger.warn("Failed to register tunnel: subdomain={} already exists", subdomain)
+        }
+        return success
     }
 
     /**
@@ -36,7 +48,20 @@ class TunnelRegistry {
      * @return true if a tunnel was found and removed, false if no tunnel existed for the subdomain
      */
     fun unregister(subdomain: String): Boolean {
-        return tunnels.remove(subdomain) != null
+        val tunnel = tunnels.remove(subdomain)
+        if (tunnel != null) {
+            logger.info("Unregistering tunnel: subdomain={}", subdomain)
+            val requestIds = requestsPerSubdomain.remove(subdomain)
+            requestIds?.forEach { correlationId ->
+                logger.debug("Cancelling pending request due to tunnel unregistration: correlationId={}", correlationId)
+                completePendingRequestExceptionally(correlationId, RequestCancelledException("Tunnel disconnected"))
+            }
+            // Also close the tunnel connection (which closes its proxies)
+            tunnel.close("Tunnel unregistered")
+            return true
+        }
+        logger.debug("Attempted to unregister non-existent tunnel: subdomain={}", subdomain)
+        return false
     }
 
     /**
@@ -88,22 +113,35 @@ class TunnelRegistry {
     /**
      * Registers a pending request for correlation tracking.
      *
+     * @param subdomain The subdomain for the request
      * @param correlationId The correlation ID for the request
      * @param pendingRequest The pending request to register
      * @return true if registration succeeded, false if a request with the given correlationId already exists
      */
-    fun registerPendingRequest(correlationId: String, pendingRequest: PendingRequest): Boolean {
-        return pendingRequests.putIfAbsent(correlationId, pendingRequest) == null
+    fun registerPendingRequest(subdomain: String, correlationId: String, pendingRequest: PendingRequest): Boolean {
+        logger.debug("Registering pending request: subdomain={}, correlationId={}", subdomain, correlationId)
+        val registered = pendingRequests.putIfAbsent(correlationId, pendingRequest) == null
+        if (registered) {
+            requestsPerSubdomain[subdomain]?.add(correlationId)
+        } else {
+            logger.warn("Failed to register pending request: correlationId={} already exists", correlationId)
+        }
+        return registered
     }
 
     /**
      * Unregisters a pending request by correlation ID.
      *
+     * @param subdomain The subdomain for the request
      * @param correlationId The correlation ID of the request to unregister
      * @return true if a request was found and removed, false if no request existed
      */
-    fun unregisterPendingRequest(correlationId: String): Boolean {
-        return pendingRequests.remove(correlationId) != null
+    fun unregisterPendingRequest(subdomain: String, correlationId: String): Boolean {
+        val removed = pendingRequests.remove(correlationId) != null
+        if (removed) {
+            requestsPerSubdomain[subdomain]?.remove(correlationId)
+        }
+        return removed
     }
 
     /**
@@ -125,7 +163,12 @@ class TunnelRegistry {
      */
     fun completePendingRequest(correlationId: String, response: ResponsePayload): Boolean {
         val request = pendingRequests.remove(correlationId)
-        return request?.complete(response) ?: false
+        if (request != null) {
+            logger.debug("Completing pending request: correlationId={}", correlationId)
+            return request.complete(response)
+        }
+        logger.debug("Attempted to complete non-existent pending request: correlationId={}", correlationId)
+        return false
     }
 
     /**
