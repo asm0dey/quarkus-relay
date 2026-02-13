@@ -5,5 +5,5 @@ plugins {
 
 dependencies {
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.10.0")
-    testImplementation("org.junit.jupiter:junit-jupiter:5.10.3")
+    testImplementation("org.junit.jupiter:junit-jupiter:5.14.2")
 }
