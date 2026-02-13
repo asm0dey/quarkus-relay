@@ -63,7 +63,7 @@ jobs:
           cache: 'gradle'
 
       - name: Build Native Server
-        run: ./gradlew :server:build -Dquarkus.package.type=native
+        run: ./gradlew :server:build -Dquarkus.package.type=native -xtest
 
       - name: Rename artifact
         run: |
@@ -89,22 +89,27 @@ jobs:
           - arch: amd64
             os: ubuntu-latest
             ext: ""
+            type: linux
           - arch: arm64
             os: ubuntu-24.04-arm
             ext: ""
+            type: linux
           - arch: amd64
             os: windows-latest
             ext: ".exe"
+            type: windows
           - arch: amd64
-            os: macos-13
+            os: macos-14-large
             ext: ""
+            type: darwin
           - arch: arm64
             os: macos-latest
             ext: ""
+            type: darwin
     runs-on: ${{ matrix.os }}
     steps:
       - name: Configure Git for Windows paths
-        if: runner.os == 'windows-latest'
+        if: matrix.os == 'windows-latest'
         shell: pwsh
         run: git config core.protectNTFS false
       - uses: actions/checkout@v4
@@ -125,12 +130,12 @@ jobs:
 
       - name: Build Native Client
         shell: bash
-        run: ./gradlew :client:build -Dquarkus.package.type=native
+        run: ./gradlew :client:build -Dquarkus.package.type=native -xtest
 
       - name: Prepare Artifact
         shell: bash
         run: |
-          BIN_NAME=relay-client-${{ matrix.target }}${{ matrix.ext }}
+          BIN_NAME=relay-client-${{ matrix.type }}-${{ matrix.arch }}${{ matrix.ext }}
           mv client/build/client-1.0.0-SNAPSHOT-runner client/build/$BIN_NAME
           if [ "${{ matrix.os }}" = "windows-latest" ]; then
             certutil -hashfile client/build/$BIN_NAME SHA256 | grep -v "hash" | grep -v "CertUtil" | tr -d ' \n\r' > client/build/$BIN_NAME.sha256
@@ -141,10 +146,10 @@ jobs:
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: relay-client-${{ matrix.target }}
+          name: relay-client-${{ matrix.type }}-${{ matrix.arch }}
           path: |
-            client/build/relay-client-${{ matrix.target }}${{ matrix.ext }}
-            client/build/relay-client-${{ matrix.target }}${{ matrix.ext }}.sha256
+            client/build/relay-client-${{ matrix.type }}-${{ matrix.arch }}${{ matrix.ext }}
+            client/build/relay-client-${{ matrix.type }}-${{ matrix.arch }}${{ matrix.ext }}.sha256
 
   docker-server:
     name: Build Server Docker Image (${{ matrix.os }}-${{ matrix.arch }})
@@ -194,7 +199,7 @@ jobs:
 
       - name: Build Native Server for Docker
         run: |
-          ./gradlew :server:build -Dquarkus.package.type=native
+          ./gradlew :server:build -Dquarkus.package.type=native -xtest
           mv server/build/server-1.0.0-SNAPSHOT-runner server/build/server-linux-${{ matrix.arch }}-runner
 
       - name: Build and push Docker image (arch-specific)
