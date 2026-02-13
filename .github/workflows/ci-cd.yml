@@ -111,7 +111,7 @@ jobs:
       - name: Configure Git for Windows paths
         if: matrix.os == 'windows-latest'
         shell: pwsh
-        run: git config core.protectNTFS false
+        run: git config --global core.protectNTFS false
       - uses: actions/checkout@v4
         with:
           sparse-checkout: |
@@ -153,7 +153,7 @@ jobs:
 
   docker-server:
     name: Build Server Docker Image (${{ matrix.os }}-${{ matrix.arch }})
-    needs: test
+    needs: build-server
     if: startsWith(github.ref, 'refs/tags/v')
     strategy:
       fail-fast: false
@@ -161,8 +161,10 @@ jobs:
         include:
           - os: ubuntu-latest
             arch: amd64
+            target: linux-amd64
           - os: ubuntu-24.04-arm
             arch: arm64
+            target: linux-arm64
     runs-on: ${{ matrix.os }}
     permissions:
       contents: read
@@ -176,13 +178,11 @@ jobs:
             !**/.*/**/:*
           sparse-checkout-cone-mode: false
 
-      - name: Set up Liberica NIK
-        uses: graalvm/setup-graalvm@v1
+      - name: Download Artifact
+        uses: actions/download-artifact@v4
         with:
-          java-version: '25'
-          distribution: 'liberica'
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          cache: 'gradle'
+          name: relay-server-${{ matrix.target }}
+          path: server/build
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
@@ -197,11 +197,6 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build Native Server for Docker
-        run: |
-          ./gradlew :server:build -Dquarkus.package.type=native -xtest
-          mv server/build/server-1.0.0-SNAPSHOT-runner server/build/server-linux-${{ matrix.arch }}-runner
-
       - name: Build and push Docker image (arch-specific)
         run: |
           TAG=${{ github.ref_name }}
@@ -211,7 +206,7 @@ jobs:
           FROM bellsoft/alpaquita-linux-base:glibc
           WORKDIR /work/
           RUN chown 1001 /work && chmod "g+rwX" /work && chown 1001:root /work
-          COPY --chown=1001:root server/build/server-linux-${{ matrix.arch }}-runner /work/application
+          COPY --chown=1001:root server/build/relay-server-${{ matrix.target }} /work/application
           EXPOSE 8080
           USER 1001
           ENTRYPOINT ["./application", "-Dquarkus.http.host=0.0.0.0"]
