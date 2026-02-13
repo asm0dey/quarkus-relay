@@ -1,0 +1,253 @@
+name: CI/CD Build and Test
+
+on:
+  push:
+    branches: [ "*" ]
+    tags: [ "v*" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  test:
+    name: Run Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: '25'
+          distribution: 'liberica'
+          cache: 'gradle'
+          
+      - name: Run tests
+        run: ./gradlew test
+
+  build-server:
+    name: Build Server (${{ matrix.os }}-${{ matrix.arch }})
+    needs: test
+    if: startsWith(github.ref, 'refs/tags/v')
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            arch: amd64
+            target: linux-amd64
+          - os: ubuntu-latest
+            arch: arm64
+            target: linux-arm64
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Liberica NIK
+        uses: graalvm/setup-graalvm@v1
+        with:
+          java-version: '25'
+          distribution: 'liberica'
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          cache: 'gradle'
+
+      - name: Install dependencies (Linux ARM64)
+        if: matrix.arch == 'arm64' && matrix.os == 'ubuntu-latest'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc-aarch64-linux-gnu g++-aarch64-linux-gnu binutils-aarch64-linux-gnu
+
+      - name: Build Native Server
+        run: |
+          if [ "${{ matrix.arch }}" = "arm64" ]; then
+            # Cross-compilation for ARM64 on x64 runner might be tricky with Quarkus directly if not using container build
+            # For now, let's assume we use Quarkus container build for ARM64 or have enough setup.
+            # Quarkus supports -Dquarkus.native.container-build=true
+            ./gradlew :server:build -Dquarkus.package.type=native -Dquarkus.native.container-build=true -Dquarkus.native.builder-image=bellsoft/liberica-native-image-kit-container:21-nik-23.1-glibc-aarch64
+          else
+            ./gradlew :server:build -Dquarkus.package.type=native
+          fi
+
+      - name: Rename artifact
+        run: |
+          mv server/build/server-1.0.0-SNAPSHOT-runner server/build/relay-server-${{ matrix.target }}
+          if [ "${{ matrix.os }}" = "windows-latest" ]; then
+            certutil -hashfile server/build/relay-server-${{ matrix.target }} SHA256 | grep -v "hash" | grep -v "CertUtil" | tr -d ' \n\r' > server/build/relay-server-${{ matrix.target }}.sha256
+          else
+            sha256sum server/build/relay-server-${{ matrix.target }} > server/build/relay-server-${{ matrix.target }}.sha256
+          fi
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: relay-server-${{ matrix.target }}
+          path: |
+            server/build/relay-server-${{ matrix.target }}
+            server/build/relay-server-${{ matrix.target }}.sha256
+
+  build-client:
+    name: Build Client (${{ matrix.os }}-${{ matrix.arch }})
+    needs: test
+    if: startsWith(github.ref, 'refs/tags/v')
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            arch: amd64
+            target: windows-amd64
+            ext: .exe
+          - os: macos-latest
+            arch: amd64
+            target: macos-amd64
+            ext: ""
+          - os: macos-latest
+            arch: arm64
+            target: macos-arm64
+            ext: ""
+          - os: ubuntu-latest
+            arch: amd64
+            target: linux-amd64
+            ext: ""
+          - os: ubuntu-latest
+            arch: arm64
+            target: linux-arm64
+            ext: ""
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Liberica NIK
+        uses: graalvm/setup-graalvm@v1
+        with:
+          java-version: '25'
+          distribution: 'liberica'
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          cache: 'gradle'
+
+      - name: Build Native Client
+        shell: bash
+        run: |
+          if [ "${{ matrix.arch }}" = "arm64" ] && [ "${{ matrix.os }}" = "ubuntu-latest" ]; then
+            ./gradlew :client:build -Dquarkus.package.type=native -Dquarkus.native.container-build=true -Dquarkus.native.builder-image=bellsoft/liberica-native-image-kit-container:21-nik-23.1-glibc-aarch64
+          else
+            ./gradlew :client:build -Dquarkus.package.type=native
+          fi
+
+      - name: Prepare Artifact
+        shell: bash
+        run: |
+          BIN_NAME=relay-client-${{ matrix.target }}${{ matrix.ext }}
+          mv client/build/client-1.0.0-SNAPSHOT-runner client/build/$BIN_NAME
+          if [ "${{ matrix.os }}" = "windows-latest" ]; then
+            certutil -hashfile client/build/$BIN_NAME SHA256 | grep -v "hash" | grep -v "CertUtil" | tr -d ' \n\r' > client/build/$BIN_NAME.sha256
+          else
+            sha256sum client/build/$BIN_NAME > client/build/$BIN_NAME.sha256
+          fi
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: relay-client-${{ matrix.target }}
+          path: |
+            client/build/relay-client-${{ matrix.target }}${{ matrix.ext }}
+            client/build/relay-client-${{ matrix.target }}${{ matrix.ext }}.sha256
+
+  docker-server:
+    name: Build and Push Server Docker Image
+    needs: test
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Liberica NIK
+        uses: graalvm/setup-graalvm@v1
+        with:
+          java-version: '25'
+          distribution: 'liberica'
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          cache: 'gradle'
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build Native Server for Docker (AMD64 & ARM64)
+        run: |
+          # Build AMD64 native
+          ./gradlew :server:build -Dquarkus.package.type=native -Dquarkus.native.container-build=true -Dquarkus.native.builder-image=bellsoft/liberica-native-image-kit-container:jdk-25-nik-25-glibc
+          mv server/build/server-1.0.0-SNAPSHOT-runner server/build/server-linux-amd64-runner
+          
+          # Build ARM64 native
+          ./gradlew :server:build -Dquarkus.package.type=native -Dquarkus.native.container-build=true -Dquarkus.native.builder-image=bellsoft/liberica-native-image-kit-container:jdk-25-nik-25-musl
+          mv server/build/server-1.0.0-SNAPSHOT-runner server/build/server-linux-arm64-runner
+
+      - name: Build and push Docker image
+        run: |
+          TAG=${{ github.ref_name }}
+          IMAGE_ID=ghcr.io/${{ github.repository }}/server
+          
+          # Create temporary Dockerfiles for multi-arch build if needed, 
+          # but buildx can handle it if we have the binaries ready and use a clever Dockerfile or multiple builds.
+          # Since we have two distinct binaries, we can use a small trick in the Dockerfile or build twice.
+          # A better way is to use --build-arg for the binary name.
+          
+          cat <<EOF > server/src/main/docker/Dockerfile.native.multiarch
+          FROM bellsoft/alpaquita-linux-base:glibc
+          ARG TARGETARCH
+          WORKDIR /work/
+          RUN chown 1001 /work && chmod "g+rwX" /work && chown 1001:root /work
+          COPY --chown=1001:root server/build/server-linux-\${TARGETARCH}-runner /work/application
+          EXPOSE 8080
+          USER 1001
+          ENTRYPOINT ["./application", "-Dquarkus.http.host=0.0.0.0"]
+          EOF
+
+          docker buildx build \
+            --platform linux/amd64,linux/arm64 \
+            --push \
+            --tag $IMAGE_ID:$TAG \
+            --tag $IMAGE_ID:latest \
+            -f server/src/main/docker/Dockerfile.native.multiarch .
+
+  release:
+    name: Create GitHub Release
+    needs: [build-server, build-client, docker-server]
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      packages: read
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Prepare Release Assets
+        run: |
+          mkdir release-assets
+          find artifacts -type f \( -not -name "*.sha256" \) -exec cp {} release-assets/ \;
+          find artifacts -type f \( -name "*.sha256" \) -exec cp {} release-assets/ \;
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: release-assets/*
+          generate_release_notes: true
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
