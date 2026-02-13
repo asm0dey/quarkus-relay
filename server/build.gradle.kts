@@ -11,7 +11,7 @@ dependencies {
     implementation("io.quarkus:quarkus-kotlin")
     implementation("io.quarkus:quarkus-arc")
     implementation("io.quarkus:quarkus-websockets")
-    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.7.3")
+    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.10.0")
     implementation("io.quarkus:quarkus-vertx")
     implementation("io.quarkus:quarkus-reactive-routes")
     implementation("io.quarkus:quarkus-config-yaml")

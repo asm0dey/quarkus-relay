@@ -10,7 +10,7 @@ dependencies {
     implementation(enforcedPlatform("$quarkusPlatformGroupId:$quarkusPlatformArtifactId:$quarkusPlatformVersion"))
     implementation("io.quarkus:quarkus-kotlin")
     implementation("io.quarkus:quarkus-websockets")
-    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.7.3")
+    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.10.0")
     implementation("io.quarkus:quarkus-picocli")
     implementation("io.quarkus:quarkus-config-yaml")
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
