@@ -16,7 +16,7 @@ dependencies {
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
     implementation(project(":shared"))
     testImplementation("io.quarkus:quarkus-junit5")
-    testImplementation("org.testcontainers:testcontainers:1.19.8")
+    testImplementation("org.testcontainers:testcontainers:1.21.4")
     testImplementation("org.mockito.kotlin:mockito-kotlin:5.4.0")
     testImplementation("ch.qos.logback:logback-classic:1.5.29")
     testImplementation("org.glassfish.tyrus:tyrus-server:2.2.2")
