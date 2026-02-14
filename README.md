@@ -2,13 +2,13 @@
 
 Relay is a lightning-fast tunneling service that exposes your local HTTP services to the internet. Built with Quarkus and Kotlin, it's designed for developers who need a reliable way to demo local work, test webhooks, or share progress without complex network configuration.
 
-[![GitHub Release](https://img.shields.io/github/v/release/asm0dey/quarkus-relay)](https://github.com/asm0dey/quarkus-relay/releases)
-[![Docker Image](https://img.shields.io/badge/docker-ghcr.io-blue)](https://github.com/asm0dey/quarkus-relay/pkgs/container/quarkus-relay%2Fserver)
+[![GitHub Release](https://img.shields.io/github/v/release/asm0dey/relay)](https://github.com/asm0dey/relay/releases)
+[![Docker Image](https://img.shields.io/badge/docker-ghcr.io-blue)](https://github.com/asm0dey/relay/pkgs/container/relay%2Fserver)
 
 ## 🚀 Quick Start
 
 ### 1. Get the Client
-Download the latest pre-compiled binary for your platform from the [Releases Page](https://github.com/asm0dey/quarkus-relay/releases).
+Download the latest pre-compiled binary for your platform from the [Releases Page](https://github.com/asm0dey/relay/releases).
 
 Alternatively, if you have Java installed, you can use the JAR file or run via Docker.
 
@@ -76,7 +76,7 @@ docker run -d \
   -p 8080:8080 \
   -e RELAY_DOMAIN=tun.example.com \
   -e RELAY_SECRET_KEYS=key1,key2 \
-  ghcr.io/asm0dey/quarkus-relay/server:latest
+  ghcr.io/asm0dey/relay/server:latest
 ```
 
 ### Configuration Variables
