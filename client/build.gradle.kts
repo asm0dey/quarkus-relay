@@ -17,7 +17,7 @@ dependencies {
     implementation(project(":shared"))
     testImplementation("io.quarkus:quarkus-junit5")
     testImplementation("org.mockito.kotlin:mockito-kotlin:5.4.0")
-    testImplementation("ch.qos.logback:logback-classic:1.5.29")
+    testImplementation("ch.qos.logback:logback-classic:1.5.31")
     testImplementation("org.glassfish.tyrus:tyrus-server:2.2.2")
     testImplementation("org.glassfish.tyrus:tyrus-container-grizzly-server:2.2.2")
 }
