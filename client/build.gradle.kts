@@ -13,7 +13,7 @@ dependencies {
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.10.0")
     implementation("io.quarkus:quarkus-picocli")
     implementation("io.quarkus:quarkus-config-yaml")
-    implementation("com.squareup.okhttp3:okhttp:4.12.0")
+    implementation("com.squareup.okhttp3:okhttp:5.3.2")
     implementation(project(":shared"))
     testImplementation("io.quarkus:quarkus-junit5")
     testImplementation("org.mockito.kotlin:mockito-kotlin:5.4.0")

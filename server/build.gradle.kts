@@ -23,8 +23,8 @@ dependencies {
     testImplementation("org.mockito:mockito-core:5.21.0")
     testImplementation("org.mockito:mockito-junit-jupiter:5.21.0")
     testImplementation("org.awaitility:awaitility:4.3.0")
-    testImplementation("com.squareup.okhttp3:okhttp:4.12.0")
-    testImplementation("com.squareup.okhttp3:mockwebserver:4.12.0")
+    testImplementation("com.squareup.okhttp3:okhttp:5.3.2")
+    testImplementation("com.squareup.okhttp3:mockwebserver:5.3.2")
 }
 
 quarkus {
